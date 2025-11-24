@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus, Poll } from './types';
 import { 
@@ -97,6 +96,13 @@ const App: React.FC = () => {
         try {
             const permission = await Notification.requestPermission();
             setPermissionStatus(permission);
+            // Also try to register SW for push if not already
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(reg => {
+                    // Logic for subscribing to VAPID push would go here
+                    console.log('SW Ready for notifications');
+                });
+            }
         } catch (e) {
             console.error("Failed to request notification permission", e);
         }
@@ -215,19 +221,34 @@ const App: React.FC = () => {
     }
   }, [currentUser]);
 
-  const sendSystemNotification = (title: string, body: string) => {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-         try {
+  const sendSystemNotification = async (title: string, body: string) => {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    try {
+        // Use Service Worker for consistent notifications (Web Push standard)
+        const registration = await navigator.serviceWorker.getRegistration();
+        
+        if (registration) {
+            registration.showNotification(title, { 
+                body, 
+                icon: 'https://cdn-icons-png.flaticon.com/512/2983/2983911.png',
+                tag: 'bunkmate-notification',
+                renotify: true,
+                badge: 'https://cdn-icons-png.flaticon.com/512/2983/2983911.png',
+                data: { url: window.location.href }
+            } as any);
+        } else {
+            // Fallback for non-SW environments
              new Notification(title, { 
                  body, 
                  icon: 'https://cdn-icons-png.flaticon.com/512/2983/2983911.png',
                  tag: 'bunkmate-notification',
                  renotify: true
              } as any);
-             SoundService.playNotification();
-         } catch (e) {
-             console.error("Notification failed", e);
-         }
+        }
+        SoundService.playNotification();
+    } catch (e) {
+        console.error("Notification failed", e);
     }
   };
 
@@ -237,7 +258,6 @@ const App: React.FC = () => {
     if (topic.includes('/heartbeat')) {
       const remoteUser = data as User;
       if (remoteUser.id !== currentUser.id) {
-         // This handles name/avatar updates from remote users too
          upsertRemoteUser(remoteUser);
       }
     } else if (topic.includes('/status')) {
@@ -289,7 +309,6 @@ const App: React.FC = () => {
     } else if (topic.includes('/reaction')) {
         const { messageId, emoji, userId } = data;
         if (userId !== currentUser.id) {
-            // Ignore own reaction echo if it happens
             const updatedMsgs = addReactionToMessage(messageId, emoji, userId);
             setMessages(updatedMsgs);
         }
@@ -370,13 +389,19 @@ const App: React.FC = () => {
       publishPollVote(messageId, optionId, currentUser.id);
   }
 
+  const handleReadMessage = (messageId: string) => {
+      if (!currentUser) return;
+      const updatedMsgs = markMessageAsRead(messageId, currentUser.id);
+      setMessages(updatedMsgs);
+      publishReadReceipt(messageId, currentUser.id);
+  }
+
   const handleUpdateProfile = (updates: Partial<User>) => {
       if (!currentUser) return;
       SoundService.playClick();
       const updatedUser = updateUserProfile(currentUser.id, updates);
       if (updatedUser) {
           setCurrentUser(updatedUser);
-          // Broadcast update so others see new name/avatar immediately
           publishHeartbeat(updatedUser);
       }
   };
@@ -423,7 +448,6 @@ const App: React.FC = () => {
     return currentViewStatuses.find(s => s.userId === currentUser?.id)?.status || 'UNDECIDED';
   }, [currentViewStatuses, currentUser]);
 
-  // Exam Logic
   const examDaysLeft = useMemo(() => {
       if (!currentUser?.examDate) return null;
       const exam = new Date(currentUser.examDate);
@@ -432,7 +456,6 @@ const App: React.FC = () => {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
       return diffDays;
   }, [currentUser?.examDate]);
-
 
   const recommendation = useMemo(() => {
     if (!currentUser) return undefined;
@@ -458,7 +481,6 @@ const App: React.FC = () => {
     if (othersGoing > othersNotGoing) return { shouldGo: true, message: `${othersGoing} friends are going. Good day to show up.`, severity: 'moderate' as const };
     return { shouldGo: true, message: "When in doubt, it's better to show up.", severity: 'moderate' as const };
   }, [currentViewStatuses, myStats.targetPercentage, currentUser, statuses, viewDateLabel, viewDateStr]);
-
 
   if (!currentUser) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
@@ -495,7 +517,6 @@ const App: React.FC = () => {
           <WeatherWidget dateOffset={dateOffset} />
       </div>
 
-      {/* Exam Countdown Widget */}
       {currentUser.examDate && examDaysLeft !== null && (
           <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-5 mb-6 text-white shadow-lg animate-slide-up relative overflow-hidden" style={{ animationDelay: '0.2s' }}>
              <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
@@ -607,7 +628,6 @@ const App: React.FC = () => {
         </div>
         )}
 
-        {/* Content Container - Use standard padding for non-interactive views, remove for interactive */}
         <div className={`flex-1 min-h-0 ${isInteractiveView ? 'flex flex-col overflow-hidden pb-20 px-0' : `overflow-y-auto space-y-4 scroll-smooth px-4 pb-24 ${!showMobileHeader ? 'pt-6' : ''}`}`}>
             {currentView === ViewState.DASHBOARD && renderDashboardWidgets()}
             {currentView === ViewState.STATS && renderStatsWidgets()}
@@ -627,6 +647,7 @@ const App: React.FC = () => {
                     onReact={handleReact}
                     typingUsers={typingUsers}
                     onVote={handlePollVote}
+                    onReadMessage={handleReadMessage}
                  />
                </div>
             )}
@@ -645,7 +666,6 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Desktop Layout */}
       <div className="hidden md:block h-full">
          <div className="ml-64 p-10 h-screen overflow-hidden flex flex-col">
             <div className="flex justify-between items-start mb-8 shrink-0">
@@ -676,7 +696,6 @@ const App: React.FC = () => {
               {currentView === ViewState.DASHBOARD && (
                   <>
                     <div className="col-span-8 space-y-8 overflow-y-auto pr-2">
-                        {/* Exam Widget for Desktop */}
                         {currentUser.examDate && examDaysLeft !== null && (
                             <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex justify-between items-center">
                                 <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4">
@@ -755,6 +774,7 @@ const App: React.FC = () => {
                         onReact={handleReact}
                         typingUsers={typingUsers}
                         onVote={handlePollVote}
+                        onReadMessage={handleReadMessage}
                       />
                   </div>
               )}

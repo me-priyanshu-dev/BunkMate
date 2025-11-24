@@ -13,6 +13,7 @@ interface Props {
   onReact: (messageId: string, emoji: string) => void;
   typingUsers: TypingStatus[];
   onVote?: (messageId: string, optionId: string) => void;
+  onReadMessage?: (messageId: string) => void;
 }
 
 const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
@@ -115,7 +116,7 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
   );
 };
 
-const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSendMessage, onSendTyping, onReact, typingUsers, onVote }) => {
+const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSendMessage, onSendTyping, onReact, typingUsers, onVote, onReadMessage }) => {
   const [input, setInput] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -129,6 +130,21 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
+
+  // Mark unread messages as read when viewing
+  useEffect(() => {
+      if (onReadMessage && document.visibilityState === 'visible') {
+          // Find messages sent by others that I haven't read yet
+          const unreadMessages = messages.filter(m => 
+              m.userId !== currentUser.id && 
+              (!m.readBy || !m.readBy.includes(currentUser.id))
+          );
+          
+          unreadMessages.forEach(msg => {
+              onReadMessage(msg.id);
+          });
+      }
+  }, [messages.length, currentUser.id, onReadMessage]);
 
   // Scroll to Bottom Helper
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -413,22 +429,36 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
 
                             {/* Seen By Indicator (Only for own messages) */}
                             {isMe && !msg.poll && seenByUsers.length > 0 && (
-                                <div className="flex items-center justify-end gap-1.5 mt-1 mr-1 animate-fade-in">
-                                    <span className="text-[10px] text-zinc-400">Seen by</span>
-                                    <div className="flex -space-x-1.5">
-                                        {seenByUsers.slice(0, 3).map((u, i) => (
-                                            <img 
-                                                key={u!.id + i} 
-                                                src={u!.avatar} 
-                                                alt={u!.name} 
-                                                title={u!.name}
-                                                className="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-zinc-900 bg-zinc-200"
-                                            />
-                                        ))}
+                                <div className="flex flex-col items-end gap-0.5 mt-1 mr-1 animate-fade-in select-none">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="flex items-center gap-1 text-[10px] text-zinc-400">
+                                           <Eye size={10} />
+                                           <span>Seen by</span>
+                                        </div>
+                                        {/* If less than 3 people, show names. Else show avatar stack */}
+                                        {seenByUsers.length <= 2 ? (
+                                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium truncate max-w-[150px]">
+                                                {seenByUsers.map(u => u!.name.split(' ')[0]).join(', ')}
+                                            </span>
+                                        ) : (
+                                            <div className="flex -space-x-1.5 items-center">
+                                                {seenByUsers.slice(0, 3).map((u, i) => (
+                                                    <img 
+                                                        key={u!.id + i} 
+                                                        src={u!.avatar} 
+                                                        alt={u!.name} 
+                                                        title={u!.name}
+                                                        className="w-4 h-4 rounded-full ring-1 ring-white dark:ring-zinc-900 bg-zinc-200"
+                                                    />
+                                                ))}
+                                                {seenByUsers.length > 3 && (
+                                                    <span className="w-4 h-4 rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-white dark:ring-zinc-900 flex items-center justify-center text-[8px] text-zinc-500 font-bold ml-1">
+                                                        +{seenByUsers.length - 3}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                    {seenByUsers.length > 3 && (
-                                        <span className="text-[9px] text-zinc-500">+{seenByUsers.length - 3}</span>
-                                    )}
                                 </div>
                             )}
 

@@ -32,6 +32,20 @@ export interface Message {
   avatar: string;
   text: string;
   timestamp: number;
+  // New Chat Features
+  replyTo?: {
+    id: string;
+    userName: string;
+    text: string;
+  };
+  reactions?: { [emoji: string]: string[] }; // emoji -> array of userIds
+  readBy?: string[]; // array of userIds
+}
+
+export interface TypingStatus {
+  userId: string;
+  userName: string;
+  timestamp: number;
 }
 
 export enum ViewState {

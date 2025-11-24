@@ -11,7 +11,6 @@ const listeners: MessageHandler[] = [];
 
 export const connectMQTT = (user: User, onMessage: MessageHandler) => {
   if (client) {
-    // If trying to connect with same user/code, do nothing
     if (currentClassCode === user.classCode && client.connected) return;
     client.end();
   }
@@ -33,14 +32,12 @@ export const connectMQTT = (user: User, onMessage: MessageHandler) => {
 
   client.on('connect', () => {
     console.log('MQTT Connected');
-    // Subscribe to all topics for this class code
     const topic = `bunkmate/${currentClassCode}/#`;
     client?.subscribe(topic, (err) => {
       if (err) {
         console.error('Subscription error:', err);
       } else {
         console.log(`Subscribed to ${topic}`);
-        // Announce presence immediately
         publishHeartbeat(user);
       }
     });
@@ -76,13 +73,13 @@ export const disconnectMQTT = () => {
 export const publishStatus = (status: DailyStatus) => {
   if (!client || !currentClassCode) return;
   const topic = `bunkmate/${currentClassCode}/status`;
-  client.publish(topic, JSON.stringify(status), { qos: 0, retain: true });
+  client.publish(topic, JSON.stringify(status), { qos: 1, retain: true });
 };
 
 export const publishMessage = (message: Message) => {
   if (!client || !currentClassCode) return;
   const topic = `bunkmate/${currentClassCode}/message`;
-  client.publish(topic, JSON.stringify(message), { qos: 0 }); // Messages are ephemeral
+  client.publish(topic, JSON.stringify(message), { qos: 1 }); 
 };
 
 export const publishHeartbeat = (user: User) => {
@@ -97,3 +94,21 @@ export const publishHeartbeat = (user: User) => {
   };
   client.publish(topic, JSON.stringify(heartbeatPayload), { qos: 0 });
 };
+
+export const publishTyping = (user: User, isTyping: boolean) => {
+  if (!client || !currentClassCode) return;
+  const topic = `bunkmate/${currentClassCode}/typing`;
+  client.publish(topic, JSON.stringify({ userId: user.id, userName: user.name, isTyping, timestamp: Date.now() }), { qos: 0 });
+}
+
+export const publishReaction = (messageId: string, emoji: string, userId: string) => {
+    if (!client || !currentClassCode) return;
+    const topic = `bunkmate/${currentClassCode}/reaction`;
+    client.publish(topic, JSON.stringify({ messageId, emoji, userId }), { qos: 1 });
+}
+
+export const publishReadReceipt = (messageId: string, userId: string) => {
+    if (!client || !currentClassCode) return;
+    const topic = `bunkmate/${currentClassCode}/read`;
+    client.publish(topic, JSON.stringify({ messageId, userId }), { qos: 0 });
+}

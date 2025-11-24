@@ -114,7 +114,6 @@ export const upsertRemoteUser = (remoteUser: Partial<User>) => {
   if (existingIndex >= 0) {
     // Update existing user but preserve isCurrentUser flag
     const isMe = users[existingIndex].isCurrentUser;
-    // Also preserve targetDaysPerWeek if remote doesn't send it
     const existingTarget = users[existingIndex].targetDaysPerWeek || 4; 
     
     updatedUsers[existingIndex] = { 
@@ -212,10 +211,26 @@ export const getMessages = (): Message[] => {
 
 export const saveMessage = (msg: Message): Message[] => {
   const msgs = getMessages();
-  // Avoid duplicates
-  if (msgs.some(m => m.id === msg.id)) return msgs;
+  // Check if message already exists (e.g., received via multiple channels)
+  const existingIndex = msgs.findIndex(m => m.id === msg.id);
   
-  const updated = [...msgs, msg];
+  let updated = [...msgs];
+  
+  if (existingIndex >= 0) {
+      // Update existing message (e.g. adding reactions or read receipts)
+      // Merge properties
+      updated[existingIndex] = {
+          ...updated[existingIndex],
+          ...msg,
+          // Merge Reactions carefully
+          reactions: msg.reactions || updated[existingIndex].reactions,
+          // Merge ReadBy
+          readBy: Array.from(new Set([...(updated[existingIndex].readBy || []), ...(msg.readBy || [])]))
+      };
+  } else {
+      updated.push(msg);
+  }
+
   // Keep only last 100 messages
   if (updated.length > 100) updated.shift();
   
@@ -223,6 +238,58 @@ export const saveMessage = (msg: Message): Message[] => {
   localStorage.setItem('bunkmate_messages', JSON.stringify(updated));
   return updated;
 };
+
+export const addReactionToMessage = (messageId: string, emoji: string, userId: string): Message[] => {
+    const msgs = getMessages();
+    const msgIndex = msgs.findIndex(m => m.id === messageId);
+    if (msgIndex === -1) return msgs;
+
+    const msg = msgs[msgIndex];
+    const reactions = msg.reactions || {};
+    const usersForEmoji = reactions[emoji] || [];
+
+    // Toggle reaction
+    let newUsersForEmoji;
+    if (usersForEmoji.includes(userId)) {
+        newUsersForEmoji = usersForEmoji.filter(id => id !== userId);
+    } else {
+        newUsersForEmoji = [...usersForEmoji, userId];
+    }
+
+    // Cleanup empty emoji keys
+    if (newUsersForEmoji.length === 0) {
+        delete reactions[emoji];
+    } else {
+        reactions[emoji] = newUsersForEmoji;
+    }
+
+    const updatedMsg = { ...msg, reactions: { ...reactions } };
+    const updatedMsgs = [...msgs];
+    updatedMsgs[msgIndex] = updatedMsg;
+
+    messagesCache = updatedMsgs;
+    localStorage.setItem('bunkmate_messages', JSON.stringify(updatedMsgs));
+    return updatedMsgs;
+};
+
+export const markMessageAsRead = (messageId: string, userId: string): Message[] => {
+    const msgs = getMessages();
+    const msgIndex = msgs.findIndex(m => m.id === messageId);
+    if (msgIndex === -1) return msgs;
+
+    const msg = msgs[msgIndex];
+    const readBy = msg.readBy || [];
+
+    if (readBy.includes(userId)) return msgs;
+
+    const updatedMsg = { ...msg, readBy: [...readBy, userId] };
+    const updatedMsgs = [...msgs];
+    updatedMsgs[msgIndex] = updatedMsg;
+    
+    messagesCache = updatedMsgs;
+    localStorage.setItem('bunkmate_messages', JSON.stringify(updatedMsgs));
+    return updatedMsgs;
+}
 
 export const initializeData = () => {
   if (!localStorage.getItem('bunkmate_users')) {

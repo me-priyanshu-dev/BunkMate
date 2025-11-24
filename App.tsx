@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message } from './types';
+import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus } from './types';
 import { 
   initializeData, 
   getTodayDateString, 
@@ -13,6 +13,8 @@ import {
   getUsersForDisplay,
   getMessages,
   saveMessage,
+  addReactionToMessage,
+  markMessageAsRead,
   upsertRemoteUser,
   saveRemoteStatus
 } from './services/mockData';
@@ -21,7 +23,10 @@ import {
   disconnectMQTT, 
   publishStatus, 
   publishHeartbeat, 
-  publishMessage 
+  publishMessage,
+  publishTyping,
+  publishReaction,
+  publishReadReceipt
 } from './services/mqttService';
 import Navigation from './components/Navigation';
 import StatusCard from './components/StatusCard';
@@ -48,6 +53,7 @@ const App: React.FC = () => {
   const [statsViewMode, setStatsViewMode] = useState<'CHART' | 'CALENDAR'>('CHART');
   const [isConnected, setIsConnected] = useState(false);
   const [dateOffset, setDateOffset] = useState(0); // 0 = Today, 1 = Tomorrow, 2 = Day After
+  const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
   
   // Safe initialization of Notification permission
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(() => {
@@ -88,6 +94,14 @@ const App: React.FC = () => {
     }
   }, [currentUser]);
 
+  // Clean up typing users that are stale (> 3s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+        setTypingUsers(prev => prev.filter(u => Date.now() - u.timestamp < 3000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // MQTT Integration Effect
   useEffect(() => {
     if (currentUser) {
@@ -120,13 +134,10 @@ const App: React.FC = () => {
         clearInterval(refreshInterval);
       };
     }
-  }, [currentUser]); // Dependency on currentUser ensures we reconnect if user switches
+  }, [currentUser]);
 
   const sendSystemNotification = (title: string, body: string) => {
-    // Only send system notification if permission granted
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-         // Check if tab is hidden. If hidden, definitely send. 
-         // If visible, user might still want it as requested, so we send it anyway.
          try {
              new Notification(title, { 
                  body, 
@@ -152,24 +163,18 @@ const App: React.FC = () => {
       const statusObj = data as DailyStatus;
       if (statusObj.userId !== currentUser.id) {
          saveRemoteStatus(statusObj);
-         // Update statuses state immediately to reflect change
          setStatuses(prev => {
             const exists = prev.find(s => s.userId === statusObj.userId && s.date === statusObj.date);
             if (exists && exists.timestamp >= statusObj.timestamp) return prev;
             return [...prev.filter(s => !(s.userId === statusObj.userId && s.date === statusObj.date)), statusObj];
          });
          
-         // Only notify for today or the viewed date
          if (statusObj.date === todayDate || statusObj.date === viewDateStr) {
              const allUsers = getUsersForDisplay(currentUser.id, currentUser.classCode);
              const who = allUsers.find(u => u.id === statusObj.userId);
              const name = who?.name || 'Friend';
              const text = `${name} is ${statusObj.status === 'GOING' ? 'Going' : 'Not Going'} ${statusObj.date === todayDate ? 'today' : 'on ' + statusObj.date}`;
-             
-             // Show in-app toast
              addNotification(text);
-             
-             // Send device notification if app is in background OR user requested it on device
              if (document.visibilityState === 'hidden' || true) {
                  sendSystemNotification("Squad Update", text);
              }
@@ -187,8 +192,29 @@ const App: React.FC = () => {
           if (currentView !== ViewState.DISCUSS) {
              addNotification(`New message from ${msg.userName}`);
              sendSystemNotification(msg.userName, msg.text);
+          } else if (document.visibilityState === 'visible') {
+              // If I'm looking at chat, mark as read
+              publishReadReceipt(msg.id, currentUser.id);
           }
       }
+    } else if (topic.includes('/typing')) {
+        const typing = data as { userId: string, userName: string, isTyping: boolean, timestamp: number };
+        if (typing.userId !== currentUser.id && typing.isTyping) {
+            setTypingUsers(prev => {
+                const others = prev.filter(u => u.userId !== typing.userId);
+                return [...others, { userId: typing.userId, userName: typing.userName, timestamp: typing.timestamp }];
+            });
+        }
+    } else if (topic.includes('/reaction')) {
+        const { messageId, emoji, userId } = data;
+        const updatedMsgs = addReactionToMessage(messageId, emoji, userId);
+        setMessages(updatedMsgs);
+    } else if (topic.includes('/read')) {
+        const { messageId, userId } = data;
+        if (userId !== currentUser.id) {
+            const updatedMsgs = markMessageAsRead(messageId, userId);
+            setMessages(updatedMsgs);
+        }
     }
   };
 
@@ -211,11 +237,11 @@ const App: React.FC = () => {
   const handleUpdateStatus = (status: StatusType) => {
     if (!currentUser) return;
     const newStatus = saveStatus(currentUser.id, status, viewDateStr);
-    setStatuses(getStatuses()); // Refresh from storage/cache
+    setStatuses(getStatuses()); 
     publishStatus(newStatus);
   };
 
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = (text: string, replyTo?: Message) => {
     if (!currentUser) return;
     const newMsg: Message = {
       id: 'msg_' + Date.now(),
@@ -223,11 +249,24 @@ const App: React.FC = () => {
       userName: currentUser.name,
       avatar: currentUser.avatar,
       text,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      replyTo: replyTo ? { id: replyTo.id, userName: replyTo.userName, text: replyTo.text } : undefined,
+      readBy: []
     };
     saveMessage(newMsg);
     setMessages(prev => [...prev, newMsg]);
     publishMessage(newMsg);
+  };
+
+  const handleSendTyping = (isTyping: boolean) => {
+    if (currentUser) publishTyping(currentUser, isTyping);
+  };
+
+  const handleReact = (messageId: string, emoji: string) => {
+    if (!currentUser) return;
+    const updatedMsgs = addReactionToMessage(messageId, emoji, currentUser.id);
+    setMessages(updatedMsgs);
+    publishReaction(messageId, emoji, currentUser.id);
   };
 
   const handleOnboardingComplete = (name: string, classCode: string, targetDays: number, isNew: boolean, existingUser?: User) => {
@@ -251,23 +290,17 @@ const App: React.FC = () => {
     setCurrentView(ViewState.DASHBOARD);
   };
 
-  // Stats Calculations (Lifetime)
   const myStats = useMemo((): AttendanceStats => {
     if (!currentUser) return { totalDays: 0, presentDays: 0, percentage: 0, targetPercentage: 75 };
-    
-    // Only count PAST days (including today) for stats, ignore future plans in stats
     const myStatuses = statuses.filter(s => s.userId === currentUser.id && s.status !== 'UNDECIDED' && s.date <= todayDate);
     const totalDays = myStatuses.length;
     const presentDays = myStatuses.filter(s => s.status === 'GOING').length;
     const percentage = totalDays > 0 ? (presentDays / totalDays) * 100 : 100;
-    
     const targetDays = currentUser.targetDaysPerWeek || 4;
     const targetPercentage = (targetDays / 5) * 100;
-
     return { totalDays, presentDays, percentage, targetPercentage };
   }, [statuses, currentUser, todayDate]);
 
-  // View Statuses (Filtered by selected date offset)
   const currentViewStatuses = useMemo(() => {
     return statuses.filter(s => s.date === viewDateStr);
   }, [statuses, viewDateStr]);
@@ -276,17 +309,11 @@ const App: React.FC = () => {
     return currentViewStatuses.find(s => s.userId === currentUser?.id)?.status || 'UNDECIDED';
   }, [currentViewStatuses, currentUser]);
 
-  // Recommendation Logic (STABLE: Does not depend on currentUser's *current* status for the view date)
   const recommendation = useMemo(() => {
     if (!currentUser) return undefined;
-    
-    // 1. Peer Pressure Logic: ONLY count OTHER people's votes
     const othersStatuses = currentViewStatuses.filter(s => s.userId !== currentUser.id);
     const othersGoing = othersStatuses.filter(s => s.status === 'GOING').length;
     const othersNotGoing = othersStatuses.filter(s => s.status === 'NOT_GOING').length;
-
-    // 2. Stats/Streak Logic: ONLY check history BEFORE the viewed date
-    // This ensures your advice doesn't flicker when you toggle "Going/Not Going" for today/tomorrow
     const historyStatuses = statuses
         .filter(s => s.userId === currentUser.id && s.status !== 'UNDECIDED' && s.date < viewDateStr)
         .sort((a,b) => b.date.localeCompare(a.date));
@@ -294,61 +321,17 @@ const App: React.FC = () => {
     const histTotal = historyStatuses.length;
     const histPresent = historyStatuses.filter(s => s.status === 'GOING').length;
     const histPercentage = histTotal > 0 ? (histPresent / histTotal) * 100 : 100;
-
-    // Streak Calculation
     let consecutiveAbsences = 0;
     for (let s of historyStatuses) {
         if (s.status === 'NOT_GOING') consecutiveAbsences++;
         else break;
     }
 
-    // --- Decision Tree ---
-
-    // A. Critical Streak Warning
-    if (consecutiveAbsences >= 2) {
-         return {
-            shouldGo: true,
-            message: `You've missed ${consecutiveAbsences} days in a row. Go ${viewDateLabel.toLowerCase()} to break the streak!`,
-            severity: 'critical' as const
-        };
-    }
-
-    // B. Critical Percentage Warning
-    if (histPercentage < myStats.targetPercentage) {
-        return {
-            shouldGo: true,
-            message: `Your attendance (${histPercentage.toFixed(0)}%) is below target (${myStats.targetPercentage.toFixed(0)}%). Catch up time!`,
-            severity: 'critical' as const
-        };
-    }
-
-    // C. Peer Pressure (Safety in numbers)
-    // If majority friends are skipping and your stats are safe
-    if (othersNotGoing > othersGoing && othersNotGoing > 0) {
-         return {
-            shouldGo: false,
-            message: `Majority of friends are skipping ${viewDateLabel.toLowerCase()}. Your stats are safe to join them.`,
-            severity: 'safe' as const
-        };
-    }
-
-    // D. Peer Pressure (FOMO)
-    // If majority friends are going
-    if (othersGoing > othersNotGoing) {
-         return {
-            shouldGo: true,
-            message: `${othersGoing} friends are going. Good day to show up.`,
-            severity: 'moderate' as const
-        };
-    }
-
-    // E. Default Safe Advice
-    return {
-        shouldGo: true,
-        message: "When in doubt, it's better to show up.",
-        severity: 'moderate' as const
-    };
-
+    if (consecutiveAbsences >= 2) return { shouldGo: true, message: `You've missed ${consecutiveAbsences} days in a row. Go ${viewDateLabel.toLowerCase()} to break the streak!`, severity: 'critical' as const };
+    if (histPercentage < myStats.targetPercentage) return { shouldGo: true, message: `Your attendance (${histPercentage.toFixed(0)}%) is below target (${myStats.targetPercentage.toFixed(0)}%). Catch up time!`, severity: 'critical' as const };
+    if (othersNotGoing > othersGoing && othersNotGoing > 0) return { shouldGo: false, message: `Majority of friends are skipping ${viewDateLabel.toLowerCase()}. Your stats are safe to join them.`, severity: 'safe' as const };
+    if (othersGoing > othersNotGoing) return { shouldGo: true, message: `${othersGoing} friends are going. Good day to show up.`, severity: 'moderate' as const };
+    return { shouldGo: true, message: "When in doubt, it's better to show up.", severity: 'moderate' as const };
   }, [currentViewStatuses, myStats.targetPercentage, currentUser, statuses, viewDateLabel, viewDateStr]);
 
 
@@ -359,7 +342,6 @@ const App: React.FC = () => {
   // Helper render functions
   const renderDashboardWidgets = () => (
     <>
-      {/* Date Navigator */}
       <div className="bg-zinc-900 p-1.5 rounded-2xl mb-6 border border-zinc-800 flex relative">
          <div className="absolute top-1.5 bottom-1.5 rounded-xl bg-blue-600 transition-all duration-300 ease-out" 
               style={{ 
@@ -370,7 +352,6 @@ const App: React.FC = () => {
          {[0, 1, 2].map(offset => {
              const { label, dateStr } = getDateWithOffset(offset);
              const isSelected = dateOffset === offset;
-             // formatting e.g. "2023-10-25" -> "25"
              const dayNum = dateStr.split('-')[2]; 
              return (
                  <button 
@@ -432,8 +413,6 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-blue-600/30 overflow-hidden flex flex-col">
-      
-      {/* Notifications */}
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3 pointer-events-none w-full max-w-md px-4">
         {notifications.map((note, idx) => (
           <div key={idx} className="bg-zinc-800/95 backdrop-blur border border-zinc-700 text-white py-3 px-6 rounded-full shadow-2xl animate-fade-in flex items-center gap-3">
@@ -445,9 +424,7 @@ const App: React.FC = () => {
 
       <Navigation currentView={currentView} setView={setCurrentView} onLogout={handleLogout} />
 
-      {/* Mobile Layout */}
       <div className="md:hidden flex-1 flex flex-col relative overflow-hidden">
-        {/* Header */}
         <div className="flex-shrink-0 pt-6 px-4 flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-white mb-0.5">Hi, {currentUser.name}</h1>
@@ -469,11 +446,6 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        {/* 
-            Content Container:
-            - If Dashboard/Stats: overflow-y-auto to allow scrolling of content.
-            - If Discuss/Advisor: overflow-hidden so the component takes full height and manages its own scroll (for sticky inputs).
-        */}
         <div className={`flex-1 min-h-0 px-4 pb-24 ${isInteractiveView ? 'overflow-hidden flex flex-col' : 'overflow-y-auto space-y-4 scroll-smooth'}`}>
             {currentView === ViewState.DASHBOARD && renderDashboardWidgets()}
             {currentView === ViewState.STATS && renderStatsWidgets()}
@@ -484,7 +456,15 @@ const App: React.FC = () => {
             )}
             {currentView === ViewState.DISCUSS && (
                <div className="h-full">
-                 <DiscussionBoard currentUser={currentUser} users={users} messages={messages} onSendMessage={handleSendMessage} />
+                 <DiscussionBoard 
+                    currentUser={currentUser} 
+                    users={users} 
+                    messages={messages} 
+                    onSendMessage={handleSendMessage}
+                    onSendTyping={handleSendTyping}
+                    onReact={handleReact}
+                    typingUsers={typingUsers}
+                 />
                </div>
             )}
         </div>
@@ -493,7 +473,6 @@ const App: React.FC = () => {
       {/* Desktop Layout */}
       <div className="hidden md:block h-full">
          <div className="ml-64 p-10 h-screen overflow-hidden flex flex-col">
-            {/* Header */}
             <div className="flex justify-between items-start mb-8 shrink-0">
               <div>
                   <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
@@ -518,12 +497,10 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Grid Content */}
             <div className="grid grid-cols-12 gap-8 flex-grow min-h-0 animate-fade-in">
               {currentView === ViewState.DASHBOARD && (
                   <>
                     <div className="col-span-8 space-y-8 overflow-y-auto pr-2">
-                        {/* Desktop Date Navigator */}
                         <div className="flex items-center gap-4 bg-zinc-900 p-2 rounded-2xl border border-zinc-800 w-fit">
                             <Calendar className="ml-2 text-zinc-500" size={20} />
                             <div className="h-6 w-px bg-zinc-700"></div>
@@ -574,7 +551,15 @@ const App: React.FC = () => {
               
               {currentView === ViewState.DISCUSS && (
                   <div className="col-span-12 h-full">
-                      <DiscussionBoard currentUser={currentUser} users={users} messages={messages} onSendMessage={handleSendMessage} />
+                      <DiscussionBoard 
+                        currentUser={currentUser} 
+                        users={users} 
+                        messages={messages} 
+                        onSendMessage={handleSendMessage}
+                        onSendTyping={handleSendTyping}
+                        onReact={handleReact}
+                        typingUsers={typingUsers}
+                      />
                   </div>
               )}
               

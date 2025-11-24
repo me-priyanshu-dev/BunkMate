@@ -42,6 +42,7 @@ import Onboarding from './components/Onboarding';
 import DiscussionBoard from './components/DiscussionBoard';
 import ProfileSettings from './components/ProfileSettings';
 import Feedback from './components/Feedback';
+import WeatherWidget from './components/WeatherWidget';
 import { Bell, Wifi, WifiOff, LogOut, Calendar, Timer } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -463,6 +464,8 @@ const App: React.FC = () => {
          })}
       </div>
 
+      <WeatherWidget dateOffset={dateOffset} />
+
       {/* Exam Countdown Widget */}
       {currentUser.examDate && examDaysLeft !== null && (
           <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-5 mb-6 text-white shadow-lg animate-fade-in relative overflow-hidden">
@@ -674,6 +677,8 @@ const App: React.FC = () => {
                                 );
                             })}
                         </div>
+                        
+                        <WeatherWidget dateOffset={dateOffset} />
 
                         <StatusCard 
                           user={currentUser} 

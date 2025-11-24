@@ -1,7 +1,8 @@
+
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AttendanceStats, User, DailyStatus } from '../types';
-import { Trophy, CalendarDays, TrendingUp, TrendingDown, Medal } from 'lucide-react';
+import { Trophy, Medal } from 'lucide-react';
 
 interface Props {
   currentUser: User;

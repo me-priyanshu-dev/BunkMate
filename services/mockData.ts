@@ -264,8 +264,8 @@ export const addReactionToMessage = (messageId: string, emoji: string, userId: s
     if (msgIndex === -1) return msgs;
 
     const msg = msgs[msgIndex];
-    // Create a shallow copy of reactions to avoid mutation issues
-    const reactions = { ...msg.reactions } || {};
+    // Create a shallow copy of reactions to avoid mutation issues, handling undefined
+    const reactions = msg.reactions ? { ...msg.reactions } : {};
     
     // 1. Check if user already reacted with THIS emoji (to handle toggle off)
     const alreadyReactedWithThis = reactions[emoji]?.includes(userId);

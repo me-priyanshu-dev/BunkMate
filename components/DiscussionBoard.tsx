@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Message, TypingStatus, Poll } from '../types';
-import { Send, Users, MessageSquare, Reply, Smile, Check, CheckCheck, ChevronDown, ArrowDown, BarChart2, Plus, X, Trash2 } from 'lucide-react';
+import { Send, Users, MessageSquare, Reply, Smile, Check, CheckCheck, ArrowDown, BarChart2, Plus, X, Trash2 } from 'lucide-react';
 
 interface Props {
   currentUser: User;

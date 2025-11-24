@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Mail, Send, MessageCircle } from 'lucide-react';
+import { Mail, MessageCircle } from 'lucide-react';
 
 const Feedback: React.FC = () => {
   const [message, setMessage] = useState('');

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus, Poll } from './types';
 import { 
   initializeData, 
@@ -71,7 +71,7 @@ const App: React.FC = () => {
   });
 
   // Calculate view date info
-  const { dateStr: viewDateStr, label: viewDateLabel, fullDisplay: viewDateDisplay } = useMemo(
+  const { label: viewDateLabel, dateStr: viewDateStr, fullDisplay: viewDateDisplay } = useMemo(
       () => getDateWithOffset(dateOffset), 
       [dateOffset]
   );
@@ -106,10 +106,6 @@ const App: React.FC = () => {
       setStatuses(getStatuses());
       setMessages(getMessages());
     }
-    // Request notification permission on mount if default and API exists
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-        requestNotificationPermission();
-    }
   }, [currentUser]);
 
   // Clean up typing users that are stale (> 3s)
@@ -123,12 +119,24 @@ const App: React.FC = () => {
   // MQTT Integration Effect
   useEffect(() => {
     if (currentUser) {
-      // Connect to MQTT
-      connectMQTT(currentUser, (topic, payload) => {
+      const initConnection = () => {
+        connectMQTT(currentUser, (topic, payload) => {
+            setIsConnected(true);
+            handleMQTTMessage(topic, payload);
+        });
         setIsConnected(true);
-        handleMQTTMessage(topic, payload);
-      });
-      setIsConnected(true);
+      };
+
+      initConnection();
+
+      // Handle Tab Visibility (Reconnect on wake)
+      const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+              initConnection();
+              publishHeartbeat(currentUser);
+          }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
 
       // Heartbeat Loop (Send my presence every 5s)
       const heartbeatInterval = setInterval(() => {
@@ -150,6 +158,7 @@ const App: React.FC = () => {
         setIsConnected(false);
         clearInterval(heartbeatInterval);
         clearInterval(refreshInterval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
   }, [currentUser]);

@@ -1,3 +1,4 @@
+
 import mqtt from 'mqtt';
 import { User, DailyStatus, Message } from '../types';
 
@@ -20,24 +21,23 @@ export const connectMQTT = (user: User, onMessage: MessageHandler) => {
 
   const clientId = 'bunkmate_' + Math.random().toString(16).substring(2, 8);
 
-  console.log(`Connecting to MQTT broker at ${BROKER_URL} as ${clientId}...`);
+  console.log(`Connecting to MQTT broker...`);
 
   client = mqtt.connect(BROKER_URL, {
     clientId,
-    keepalive: 60,
+    keepalive: 120, // Increased to 120s to prevent timeouts during background throttling
     clean: true,
-    reconnectPeriod: 5000,
+    reconnectPeriod: 2000,
     connectTimeout: 30 * 1000,
+    reschedulePings: true, // Helps when browser wakes up from sleep
+    protocolVersion: 4
   });
 
   client.on('connect', () => {
     console.log('MQTT Connected');
     const topic = `bunkmate/${currentClassCode}/#`;
     client?.subscribe(topic, (err) => {
-      if (err) {
-        console.error('Subscription error:', err);
-      } else {
-        console.log(`Subscribed to ${topic}`);
+      if (!err) {
         publishHeartbeat(user);
       }
     });
@@ -49,16 +49,21 @@ export const connectMQTT = (user: User, onMessage: MessageHandler) => {
       const data = JSON.parse(messageStr);
       listeners.forEach(l => l(topic, data));
     } catch (e) {
-      console.error('Failed to parse MQTT message', e);
+      // Ignore parse errors from malformed packets
     }
   });
 
   client.on('error', (err) => {
-    console.error('MQTT Error:', err);
+    // Suppress keepalive timeout errors from console to avoid noise
+    if (err.message === 'Keepalive timeout') {
+        console.log('MQTT Keepalive timeout, reconnecting...');
+    } else {
+        console.error('MQTT Error:', err);
+    }
   });
   
   client.on('reconnect', () => {
-      console.log('MQTT Reconnecting...');
+      // Silent reconnect
   });
 };
 

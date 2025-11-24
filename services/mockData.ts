@@ -225,7 +225,9 @@ export const saveMessage = (msg: Message): Message[] => {
           // Merge Reactions carefully
           reactions: msg.reactions || updated[existingIndex].reactions,
           // Merge ReadBy
-          readBy: Array.from(new Set([...(updated[existingIndex].readBy || []), ...(msg.readBy || [])]))
+          readBy: Array.from(new Set([...(updated[existingIndex].readBy || []), ...(msg.readBy || [])])),
+          // Merge Poll data
+          poll: msg.poll ? msg.poll : updated[existingIndex].poll
       };
   } else {
       updated.push(msg);
@@ -270,6 +272,47 @@ export const addReactionToMessage = (messageId: string, emoji: string, userId: s
     messagesCache = updatedMsgs;
     localStorage.setItem('bunkmate_messages', JSON.stringify(updatedMsgs));
     return updatedMsgs;
+};
+
+export const voteOnPoll = (messageId: string, optionId: string, userId: string): Message[] => {
+  const msgs = getMessages();
+  const msgIndex = msgs.findIndex(m => m.id === messageId);
+  if (msgIndex === -1 || !msgs[msgIndex].poll) return msgs;
+
+  const msg = msgs[msgIndex];
+  const poll = msg.poll!;
+  
+  // Check if user is voting or unvoting the target option
+  const targetOption = poll.options.find(o => o.id === optionId);
+  if (!targetOption) return msgs;
+  
+  const isUnvoting = targetOption.votes.includes(userId);
+  
+  const updatedOptions = poll.options.map(opt => {
+    let newVotes = [...opt.votes];
+    
+    if (opt.id === optionId) {
+       if (isUnvoting) {
+         newVotes = newVotes.filter(id => id !== userId);
+       } else {
+         newVotes.push(userId);
+       }
+    } else {
+       // If single choice and we are adding a vote to target, remove from others
+       if (!poll.allowMultiple && !isUnvoting) {
+         newVotes = newVotes.filter(id => id !== userId);
+       }
+    }
+    return { ...opt, votes: newVotes };
+  });
+
+  const updatedMsg = { ...msg, poll: { ...poll, options: updatedOptions } };
+  const updatedMsgs = [...msgs];
+  updatedMsgs[msgIndex] = updatedMsg;
+  
+  messagesCache = updatedMsgs;
+  localStorage.setItem('bunkmate_messages', JSON.stringify(updatedMsgs));
+  return updatedMsgs;
 };
 
 export const markMessageAsRead = (messageId: string, userId: string): Message[] => {

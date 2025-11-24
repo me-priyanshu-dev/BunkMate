@@ -25,12 +25,24 @@ export interface AttendanceStats {
   targetPercentage: number;
 }
 
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: string[]; // array of userIds
+}
+
+export interface Poll {
+  question: string;
+  options: PollOption[];
+  allowMultiple: boolean;
+}
+
 export interface Message {
   id: string;
   userId: string;
   userName: string;
   avatar: string;
-  text: string;
+  text: string; // can be empty if it's just a poll
   timestamp: number;
   // New Chat Features
   replyTo?: {
@@ -40,6 +52,7 @@ export interface Message {
   };
   reactions?: { [emoji: string]: string[] }; // emoji -> array of userIds
   readBy?: string[]; // array of userIds
+  poll?: Poll;
 }
 
 export interface TypingStatus {

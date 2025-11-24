@@ -112,3 +112,9 @@ export const publishReadReceipt = (messageId: string, userId: string) => {
     const topic = `bunkmate/${currentClassCode}/read`;
     client.publish(topic, JSON.stringify({ messageId, userId }), { qos: 0 });
 }
+
+export const publishPollVote = (messageId: string, optionId: string, userId: string) => {
+    if (!client || !currentClassCode) return;
+    const topic = `bunkmate/${currentClassCode}/poll-vote`;
+    client.publish(topic, JSON.stringify({ messageId, optionId, userId }), { qos: 1 });
+}

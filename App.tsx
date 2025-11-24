@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus } from './types';
+import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus, Poll } from './types';
 import { 
   initializeData, 
   getTodayDateString, 
@@ -16,7 +16,8 @@ import {
   addReactionToMessage,
   markMessageAsRead,
   upsertRemoteUser,
-  saveRemoteStatus
+  saveRemoteStatus,
+  voteOnPoll
 } from './services/mockData';
 import { 
   connectMQTT, 
@@ -26,7 +27,8 @@ import {
   publishMessage,
   publishTyping,
   publishReaction,
-  publishReadReceipt
+  publishReadReceipt,
+  publishPollVote
 } from './services/mqttService';
 import Navigation from './components/Navigation';
 import StatusCard from './components/StatusCard';
@@ -191,7 +193,7 @@ const App: React.FC = () => {
           
           if (currentView !== ViewState.DISCUSS) {
              addNotification(`New message from ${msg.userName}`);
-             sendSystemNotification(msg.userName, msg.text);
+             sendSystemNotification(msg.userName, msg.text || (msg.poll ? 'Sent a poll' : 'Sent a message'));
           } else if (document.visibilityState === 'visible') {
               // If I'm looking at chat, mark as read
               publishReadReceipt(msg.id, currentUser.id);
@@ -207,12 +209,21 @@ const App: React.FC = () => {
         }
     } else if (topic.includes('/reaction')) {
         const { messageId, emoji, userId } = data;
-        const updatedMsgs = addReactionToMessage(messageId, emoji, userId);
-        setMessages(updatedMsgs);
+        // FIX: Ignore my own reactions echoing back from server to prevent toggling off
+        if (userId !== currentUser.id) {
+            const updatedMsgs = addReactionToMessage(messageId, emoji, userId);
+            setMessages(updatedMsgs);
+        }
     } else if (topic.includes('/read')) {
         const { messageId, userId } = data;
         if (userId !== currentUser.id) {
             const updatedMsgs = markMessageAsRead(messageId, userId);
+            setMessages(updatedMsgs);
+        }
+    } else if (topic.includes('/poll-vote')) {
+        const { messageId, optionId, userId } = data;
+        if (userId !== currentUser.id) {
+            const updatedMsgs = voteOnPoll(messageId, optionId, userId);
             setMessages(updatedMsgs);
         }
     }
@@ -241,7 +252,7 @@ const App: React.FC = () => {
     publishStatus(newStatus);
   };
 
-  const handleSendMessage = (text: string, replyTo?: Message) => {
+  const handleSendMessage = (text: string, replyTo?: Message, poll?: Poll) => {
     if (!currentUser) return;
     const newMsg: Message = {
       id: 'msg_' + Date.now(),
@@ -251,7 +262,8 @@ const App: React.FC = () => {
       text,
       timestamp: Date.now(),
       replyTo: replyTo ? { id: replyTo.id, userName: replyTo.userName, text: replyTo.text } : undefined,
-      readBy: []
+      readBy: [],
+      poll
     };
     saveMessage(newMsg);
     setMessages(prev => [...prev, newMsg]);
@@ -268,6 +280,13 @@ const App: React.FC = () => {
     setMessages(updatedMsgs);
     publishReaction(messageId, emoji, currentUser.id);
   };
+
+  const handlePollVote = (messageId: string, optionId: string) => {
+      if (!currentUser) return;
+      const updatedMsgs = voteOnPoll(messageId, optionId, currentUser.id);
+      setMessages(updatedMsgs);
+      publishPollVote(messageId, optionId, currentUser.id);
+  }
 
   const handleOnboardingComplete = (name: string, classCode: string, targetDays: number, isNew: boolean, existingUser?: User) => {
     let user;
@@ -464,6 +483,7 @@ const App: React.FC = () => {
                     onSendTyping={handleSendTyping}
                     onReact={handleReact}
                     typingUsers={typingUsers}
+                    onVote={handlePollVote}
                  />
                </div>
             )}
@@ -559,6 +579,7 @@ const App: React.FC = () => {
                         onSendTyping={handleSendTyping}
                         onReact={handleReact}
                         typingUsers={typingUsers}
+                        onVote={handlePollVote}
                       />
                   </div>
               )}

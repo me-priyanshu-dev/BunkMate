@@ -43,7 +43,7 @@ const StatusCard: React.FC<Props> = ({ user, status, onUpdateStatus, recommendat
            {/* Background Decoration */}
            <Icon className={`absolute -right-4 -top-4 opacity-10 ${style.iconColor}`} size={100} />
            
-           <div className={`mt-1 shrink-0 bg-white/50 dark:bg-zinc-950/30 p-2.5 rounded-xl backdrop-blur-sm`}>
+           <div className={`mt-1 shrink-0 bg-white/50 dark:bg-zinc-950/30 p-2.5 rounded-xl backdrop-blur-sm animate-pop-in`}>
              <Icon size={24} className={style.iconColor} />
            </div>
            <div className="relative z-10">
@@ -63,14 +63,14 @@ const StatusCard: React.FC<Props> = ({ user, status, onUpdateStatus, recommendat
       )}
       
       {/* Note Input */}
-      <div className="bg-zinc-50 dark:bg-zinc-950/50 rounded-xl px-4 py-3 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
+      <div className="bg-zinc-50 dark:bg-zinc-950/50 rounded-xl px-4 py-3 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
          <PenLine size={18} className="text-zinc-400" />
          <input 
             type="text" 
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Add context (e.g. 'Sick', 'Studying for Test')..." 
-            className="bg-transparent border-none focus:ring-0 text-sm w-full text-zinc-800 dark:text-zinc-200 placeholder-zinc-500"
+            className="bg-transparent border-none focus:outline-none focus:ring-0 text-sm w-full text-zinc-800 dark:text-zinc-200 placeholder-zinc-500"
          />
       </div>
 

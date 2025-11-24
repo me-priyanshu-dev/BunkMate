@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Message, TypingStatus, Poll } from '../types';
-import { Send, Users, MessageSquare, Reply, Smile, Check, CheckCheck, ArrowDown, BarChart2, Plus, X, Trash2 } from 'lucide-react';
+import { Send, Users, MessageSquare, Reply, Smile, Check, CheckCheck, ArrowDown, BarChart2, Plus, X, Trash2, Eye } from 'lucide-react';
+import { SoundService } from '../services/soundService';
 
 interface Props {
   currentUser: User;
@@ -152,10 +153,14 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     else if (isNewMessage) {
         const lastMsg = messages[messages.length - 1];
         // If I sent it, or I was already near bottom, auto-scroll
-        if (lastMsg.userId === currentUser.id || isNearBottom) {
+        if (lastMsg.userId === currentUser.id) {
+            scrollToBottom('smooth');
+        } else if (isNearBottom) {
              scrollToBottom('smooth');
+             SoundService.playReceive();
         } else {
              setShowScrollButton(true);
+             SoundService.playReceive();
         }
     }
 
@@ -193,6 +198,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const handleSend = () => {
     if (!input.trim()) return;
     onSendMessage(input, replyingTo || undefined);
+    SoundService.playSend();
     setInput('');
     setReplyingTo(null);
     onSendTyping(false);
@@ -211,6 +217,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     };
 
     onSendMessage('', undefined, newPoll);
+    SoundService.playSend();
     setShowPollCreator(false);
     setPollQuestion('');
     setPollOptions(['', '']);
@@ -241,7 +248,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
       <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center z-50 sticky top-0 shrink-0 shadow-sm transition-colors">
         <div>
             <h2 className="text-zinc-900 dark:text-white font-bold text-lg flex items-center gap-2">
-              <MessageSquare className="text-blue-600 dark:text-blue-500" size={20} />
+              <MessageSquare className="text-blue-600 dark:text-blue-500 animate-pulse" size={20} />
               Squad Chat
             </h2>
             <div className="flex items-center gap-2 mt-1">
@@ -269,7 +276,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
 
         {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-600 opacity-60 min-h-[300px]">
-                <div className="bg-zinc-200/50 dark:bg-zinc-800/50 p-4 rounded-full mb-3">
+                <div className="bg-zinc-200/50 dark:bg-zinc-800/50 p-4 rounded-full mb-3 animate-pop-in">
                    <MessageSquare size={32} />
                 </div>
                 <p className="text-base font-medium">No messages yet</p>
@@ -284,9 +291,8 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
           const othersRead = msg.readBy?.filter(id => id !== currentUser.id) || [];
           const isAllRead = othersRead.length > 0;
           
-          const readTooltip = othersRead.length > 0 
-            ? `Read by: ${othersRead.map(id => users.find(u => u.id === id)?.name || 'Unknown').join(', ')}`
-            : 'Delivered';
+          // Identify users who read this message
+          const seenByUsers = othersRead.map(id => users.find(u => u.id === id)).filter(Boolean);
           
           // Date Separator Logic
           const prevMsg = messages[index - 1];
@@ -295,20 +301,23 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
           return (
             <React.Fragment key={msg.id}>
               {showDateSeparator && (
-                  <div className="flex justify-center my-6 relative z-0">
+                  <div className="flex justify-center my-6 relative z-0 animate-fade-in">
                       <span className="bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm border border-zinc-200 dark:border-zinc-700/50 backdrop-blur-sm">
                           {formatDateLabel(msg.timestamp)}
                       </span>
                   </div>
               )}
 
-              <SwipeableMessage onReply={() => setReplyingTo(msg)}>
-                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group mb-4 relative z-0 hover:z-30 w-full`}>
+              <SwipeableMessage onReply={() => {
+                  setReplyingTo(msg);
+                  SoundService.playClick();
+              }}>
+                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group mb-4 relative z-0 hover:z-30 w-full animate-slide-up`}>
                 
                     <div className={`flex gap-2 max-w-[90%] md:max-w-[75%] ${isMe ? 'flex-row-reverse' : ''}`}>
                         <div className="w-8 flex-shrink-0 flex flex-col items-center">
                             {showHeader ? (
-                                <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-800 ring-2 ring-white dark:ring-zinc-900/50 mt-1">
+                                <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-800 ring-2 ring-white dark:ring-zinc-900/50 mt-1 animate-pop-in">
                                     <img src={msg.avatar} alt={msg.userName} className="w-full h-full object-cover" />
                                 </div>
                             ) : <div className="w-8" />}
@@ -344,7 +353,10 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                             return (
                                                 <button 
                                                     key={opt.id}
-                                                    onClick={() => onVote && onVote(msg.id, opt.id)}
+                                                    onClick={() => {
+                                                        onVote && onVote(msg.id, opt.id);
+                                                        SoundService.playClick();
+                                                    }}
                                                     className={`w-full relative h-10 rounded-lg overflow-hidden border transition-all ${isVoted ? 'border-blue-500 ring-1 ring-blue-500' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'}`}
                                                 >
                                                     <div className="absolute top-0 left-0 bottom-0 bg-zinc-100 dark:bg-zinc-700/50 w-full" /> 
@@ -367,7 +379,10 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                             ) : (
                                 /* Message Bubble */
                                 <div 
-                                    onDoubleClick={() => onReact(msg.id, '❤️')}
+                                    onDoubleClick={() => {
+                                        onReact(msg.id, '❤️');
+                                        SoundService.playClick();
+                                    }}
                                     className={`relative px-4 py-2 rounded-2xl text-[15px] shadow-sm leading-relaxed break-words whitespace-pre-wrap transition-all cursor-pointer select-none ${
                                     isMe 
                                     ? 'bg-blue-600 text-white rounded-tr-sm' 
@@ -379,7 +394,6 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                     
                                     <div 
                                         className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-blue-200' : 'text-zinc-400 dark:text-zinc-500'}`}
-                                        title={isMe ? readTooltip : ''}
                                     >
                                         <span>{formatTime(msg.timestamp)}</span>
                                         {isMe && (
@@ -388,11 +402,32 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                     </div>
 
                                     {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                                        <div className={`absolute -bottom-3 ${isMe ? 'right-0' : 'left-0'} flex gap-0.5 bg-white dark:bg-zinc-900 rounded-full px-1.5 py-0.5 border border-zinc-200 dark:border-zinc-800 shadow-md whitespace-nowrap z-20`}>
+                                        <div className={`absolute -bottom-3 ${isMe ? 'right-0' : 'left-0'} flex gap-0.5 bg-white dark:bg-zinc-900 rounded-full px-1.5 py-0.5 border border-zinc-200 dark:border-zinc-800 shadow-md whitespace-nowrap z-20 animate-pop-in`}>
                                             {Object.entries(msg.reactions).map(([emoji, userIds]) => (
                                                 <span key={emoji} className="text-xs" title={userIds.join(', ')}>{emoji} <span className="text-[9px] text-zinc-500 font-mono">{userIds.length > 1 ? userIds.length : ''}</span></span>
                                             ))}
                                         </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Seen By Indicator (Only for own messages) */}
+                            {isMe && !msg.poll && seenByUsers.length > 0 && (
+                                <div className="flex items-center justify-end gap-1.5 mt-1 mr-1 animate-fade-in">
+                                    <span className="text-[10px] text-zinc-400">Seen by</span>
+                                    <div className="flex -space-x-1.5">
+                                        {seenByUsers.slice(0, 3).map((u, i) => (
+                                            <img 
+                                                key={u!.id + i} 
+                                                src={u!.avatar} 
+                                                alt={u!.name} 
+                                                title={u!.name}
+                                                className="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-zinc-900 bg-zinc-200"
+                                            />
+                                        ))}
+                                    </div>
+                                    {seenByUsers.length > 3 && (
+                                        <span className="text-[9px] text-zinc-500">+{seenByUsers.length - 3}</span>
                                     )}
                                 </div>
                             )}
@@ -406,11 +441,14 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                     <button className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
                                         <Smile size={14} />
                                     </button>
-                                    <div className={`absolute ${isNearTop ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 hidden group-hover/emoji:flex bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-1.5 rounded-full shadow-xl gap-1 z-50`}>
+                                    <div className={`absolute ${isNearTop ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 hidden group-hover/emoji:flex bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-1.5 rounded-full shadow-xl gap-1 z-50 animate-pop-in`}>
                                         {REACTION_EMOJIS.map(emoji => (
                                             <button 
                                                 key={emoji} 
-                                                onClick={() => onReact(msg.id, emoji)}
+                                                onClick={() => {
+                                                    onReact(msg.id, emoji);
+                                                    SoundService.playClick();
+                                                }}
                                                 className="hover:scale-125 transition-transform text-base p-1"
                                             >
                                                 {emoji}
@@ -450,7 +488,10 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
       
       {showScrollButton && (
         <button 
-            onClick={() => scrollToBottom('smooth')}
+            onClick={() => {
+                scrollToBottom('smooth');
+                SoundService.playClick();
+            }}
             className="absolute bottom-24 right-6 bg-white dark:bg-zinc-800 text-blue-500 p-2.5 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700 transition-transform active:scale-95 z-50 animate-bounce"
         >
             <ArrowDown size={24} />
@@ -471,7 +512,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                     placeholder="Ask a question..."
                     value={pollQuestion}
                     onChange={e => setPollQuestion(e.target.value)}
-                    className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                    className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-all"
                  />
                  
                  <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
@@ -486,7 +527,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                     newOpts[i] = e.target.value;
                                     setPollOptions(newOpts);
                                 }}
-                                className="flex-1 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 dark:text-white"
+                                className="flex-1 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 dark:text-white transition-all"
                              />
                              {pollOptions.length > 2 && (
                                  <button onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))} className="text-zinc-400 hover:text-red-500"><Trash2 size={18}/></button>
@@ -503,7 +544,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                  </button>
 
                  <div className="flex items-center gap-2 mb-6" onClick={() => setPollAllowMultiple(!pollAllowMultiple)}>
-                     <div className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${pollAllowMultiple ? 'bg-blue-500 border-blue-500' : 'border-zinc-400'}`}>
+                     <div className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-colors ${pollAllowMultiple ? 'bg-blue-500 border-blue-500' : 'border-zinc-400'}`}>
                          {pollAllowMultiple && <Check size={14} className="text-white" />}
                      </div>
                      <span className="text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer">Allow multiple answers</span>
@@ -551,7 +592,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                         }
                     }}
                     placeholder="Type a message..."
-                    className="w-full bg-transparent border-none focus:ring-0 px-4 py-3 max-h-32 min-h-[48px] resize-none text-zinc-900 dark:text-white placeholder-zinc-500"
+                    className="w-full bg-transparent border-none focus:outline-none focus:ring-0 px-4 py-3 max-h-32 min-h-[48px] resize-none text-zinc-900 dark:text-white placeholder-zinc-500"
                     rows={1}
                 />
             </div>

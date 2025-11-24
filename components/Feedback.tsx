@@ -19,7 +19,7 @@ const Feedback: React.FC = () => {
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-10 border border-zinc-200 dark:border-zinc-800 max-w-2xl mx-auto shadow-sm transition-colors duration-300">
       <div className="text-center mb-10">
-        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pop-in">
             <MessageCircle size={32} />
         </div>
         <h2 className="text-3xl font-bold text-zinc-900 dark:text-white mb-2">We value your feedback</h2>
@@ -34,7 +34,7 @@ const Feedback: React.FC = () => {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             />
         </div>
 
@@ -45,14 +45,14 @@ const Feedback: React.FC = () => {
                 onChange={e => setMessage(e.target.value)}
                 placeholder="Tell us what you think..."
                 rows={6}
-                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-colors resize-none"
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors resize-none"
             />
         </div>
 
         <button 
             onClick={handleSend}
             disabled={!message.trim()}
-            className="w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-lg shadow-blue-600/20 transition-all"
+            className="w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-lg shadow-blue-600/20 transition-all active:scale-95"
         >
             <Mail size={20} /> Send via Email
         </button>

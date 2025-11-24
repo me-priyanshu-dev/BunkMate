@@ -53,7 +53,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                     <img 
                         src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9`} 
                         alt="Preview" 
-                        className="w-full h-full object-cover" 
+                        className="w-full h-full object-cover animate-pop-in" 
                     />
                 </div>
                 <button 
@@ -78,7 +78,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                     type="text" 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
             </div>
 
@@ -96,7 +96,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                             placeholder="e.g. JEE Mains"
                             value={examName}
                             onChange={(e) => setExamName(e.target.value)}
-                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
                     <div>
@@ -105,7 +105,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                             type="date" 
                             value={examDate}
                             onChange={(e) => setExamDate(e.target.value)}
-                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
                 </div>
@@ -119,7 +119,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                         type="text" 
                         value={user.classCode}
                         readOnly
-                        className="w-full bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-zinc-500 dark:text-zinc-400 cursor-not-allowed font-mono"
+                        className="w-full bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-zinc-500 dark:text-zinc-400 cursor-not-allowed font-mono focus:outline-none"
                     />
                 </div>
             </div>
@@ -133,7 +133,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                             onClick={() => setTargetDays(num)}
                             className={`flex-1 py-3 rounded-xl font-bold transition-all ${
                                 targetDays === num 
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105' 
                                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                             }`}
                         >
@@ -166,7 +166,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
             className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all ${
                 isSaved 
                 ? 'bg-green-600 text-white' 
-                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20'
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 active:scale-95'
             }`}
         >
             {isSaved ? 'Changes Saved!' : <><Save size={20} /> Save Changes</>}

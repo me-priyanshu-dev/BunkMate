@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { GraduationCap, ArrowRight, ShieldCheck, UserPlus, LogIn, Hash, Target, AlertCircle } from 'lucide-react';
 import { getAllUsers, checkNameExists } from '../services/mockData';
 import { User } from '../types';
+import { SoundService } from '../services/soundService';
 
 interface Props {
   onComplete: (name: string, classCode: string, targetDays: number, isNew: boolean, existingUser?: User) => void;
@@ -37,17 +39,19 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
         setError('This name is already taken in this class. Please use a unique nickname.');
         return;
     }
-
+    
+    SoundService.playClick();
     onComplete(name, classCode, targetDays, true);
   };
 
   const handleLogin = (user: User) => {
+    SoundService.playClick();
     onComplete(user.name, user.classCode, user.targetDaysPerWeek || 4, false, user);
   };
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-      <div className="mb-8 p-6 bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-800">
+      <div className="mb-8 p-6 bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-800 animate-pop-in">
         <GraduationCap size={64} className="text-blue-600" />
       </div>
       
@@ -59,7 +63,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
       <div className="bg-zinc-900 p-8 rounded-3xl w-full max-w-sm md:max-w-md border border-zinc-800 shadow-xl">
         
         {view === 'LIST' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-slide-up">
             <h2 className="text-zinc-300 font-semibold text-left text-lg">Continue as...</h2>
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
               {existingUsers.map(user => (
@@ -92,7 +96,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
         )}
 
         {view === 'CREATE' && (
-          <div className="space-y-5 animate-fade-in">
+          <div className="space-y-5 animate-slide-up">
              <div className="flex items-start gap-4 mb-8 text-left bg-zinc-950 p-4 rounded-xl border border-zinc-800">
               <ShieldCheck className="text-green-500 shrink-0 mt-1" size={24} />
               <p className="text-sm text-zinc-400 leading-relaxed">
@@ -130,7 +134,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
                         {[1, 2, 3, 4, 5, 6].map(num => (
                             <button
                                 key={num}
-                                onClick={() => setTargetDays(num)}
+                                onClick={() => { setTargetDays(num); SoundService.playClick(); }}
                                 className={`w-10 h-10 rounded-xl font-bold transition-all ${
                                     targetDays === num 
                                     ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-900/50' 
@@ -154,7 +158,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
             <button
               onClick={handleCreate}
               disabled={!name.trim() || !classCode.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all mt-4 text-lg"
+              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all mt-4 text-lg active:scale-95"
             >
               Join Squad <ArrowRight size={20} />
             </button>

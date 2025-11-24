@@ -32,6 +32,7 @@ import {
   publishReadReceipt,
   publishPollVote
 } from './services/mqttService';
+import { SoundService } from './services/soundService';
 import Navigation from './components/Navigation';
 import StatusCard from './components/StatusCard';
 import GroupPulse from './components/GroupPulse';
@@ -204,6 +205,7 @@ const App: React.FC = () => {
                  tag: 'bunkmate-notification',
                  renotify: true
              } as any);
+             SoundService.playNotification();
          } catch (e) {
              console.error("Notification failed", e);
          }
@@ -288,6 +290,7 @@ const App: React.FC = () => {
   };
 
   const addNotification = (msg: string) => {
+    SoundService.playNotification();
     setNotifications(prev => [msg, ...prev]);
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n !== msg));
@@ -295,6 +298,7 @@ const App: React.FC = () => {
   };
 
   const forceRefresh = () => {
+    SoundService.playClick();
     setStatuses(getStatuses());
     setMessages(getMessages());
     if (currentUser) {
@@ -305,6 +309,7 @@ const App: React.FC = () => {
 
   const handleUpdateStatus = (status: StatusType, note?: string) => {
     if (!currentUser) return;
+    SoundService.playClick();
     const newStatus = saveStatus(currentUser.id, status, viewDateStr, note);
     setStatuses(getStatuses()); 
     publishStatus(newStatus);
@@ -348,6 +353,7 @@ const App: React.FC = () => {
 
   const handleUpdateProfile = (updates: Partial<User>) => {
       if (!currentUser) return;
+      SoundService.playClick();
       const updatedUser = updateUserProfile(currentUser.id, updates);
       if (updatedUser) {
           setCurrentUser(updatedUser);
@@ -357,6 +363,7 @@ const App: React.FC = () => {
   };
 
   const handleOnboardingComplete = (name: string, classCode: string, targetDays: number, isNew: boolean, existingUser?: User) => {
+    SoundService.playClick();
     let user;
     if (isNew) {
       user = registerUser(name, classCode, targetDays);
@@ -370,6 +377,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    SoundService.playClick();
     logoutUser();
     disconnectMQTT();
     setCurrentUser(null);
@@ -440,7 +448,7 @@ const App: React.FC = () => {
   // Helper render functions
   const renderDashboardWidgets = () => (
     <>
-      <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-2xl mb-6 border border-zinc-200 dark:border-zinc-800 flex relative transition-colors duration-300">
+      <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-2xl mb-6 border border-zinc-200 dark:border-zinc-800 flex relative transition-colors duration-300 animate-slide-up">
          <div className="absolute top-1.5 bottom-1.5 rounded-xl bg-blue-600 transition-all duration-300 ease-out" 
               style={{ 
                   width: 'calc(33.33% - 4px)', 
@@ -454,7 +462,7 @@ const App: React.FC = () => {
              return (
                  <button 
                     key={offset}
-                    onClick={() => setDateOffset(offset)}
+                    onClick={() => { setDateOffset(offset); SoundService.playClick(); }}
                     className={`flex-1 relative z-10 py-2.5 rounded-xl text-sm font-medium transition-colors flex flex-col items-center leading-none gap-1 ${isSelected ? 'text-white' : 'text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
                  >
                     <span>{label}</span>
@@ -464,11 +472,13 @@ const App: React.FC = () => {
          })}
       </div>
 
-      <WeatherWidget dateOffset={dateOffset} />
+      <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <WeatherWidget dateOffset={dateOffset} />
+      </div>
 
       {/* Exam Countdown Widget */}
       {currentUser.examDate && examDaysLeft !== null && (
-          <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-5 mb-6 text-white shadow-lg animate-fade-in relative overflow-hidden">
+          <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-5 mb-6 text-white shadow-lg animate-slide-up relative overflow-hidden" style={{ animationDelay: '0.2s' }}>
              <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
                  <Timer size={120} />
              </div>
@@ -485,34 +495,38 @@ const App: React.FC = () => {
           </div>
       )}
 
-      <StatusCard 
-        user={currentUser} 
-        status={myCurrentViewStatus} 
-        onUpdateStatus={handleUpdateStatus} 
-        recommendation={recommendation}
-        dateLabel={viewDateLabel}
-      />
-      <GroupPulse 
-        users={users} 
-        statuses={currentViewStatuses} 
-        onRefresh={forceRefresh}
-        currentUser={currentUser}
-        dateLabel={viewDateLabel}
-      />
+      <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <StatusCard 
+            user={currentUser} 
+            status={myCurrentViewStatus} 
+            onUpdateStatus={handleUpdateStatus} 
+            recommendation={recommendation}
+            dateLabel={viewDateLabel}
+          />
+      </div>
+      <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
+          <GroupPulse 
+            users={users} 
+            statuses={currentViewStatuses} 
+            onRefresh={forceRefresh}
+            currentUser={currentUser}
+            dateLabel={viewDateLabel}
+          />
+      </div>
     </>
   );
 
   const renderStatsWidgets = () => (
-    <div className="space-y-6 h-full flex flex-col">
+    <div className="space-y-6 h-full flex flex-col animate-fade-in">
       <div className="flex gap-4 mb-2 flex-shrink-0">
         <button 
-           onClick={() => setStatsViewMode('CHART')}
+           onClick={() => { setStatsViewMode('CHART'); SoundService.playClick(); }}
            className={`flex-1 py-3 px-4 rounded-xl text-lg font-medium transition-colors ${statsViewMode === 'CHART' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}
         >
           Overview & Rank
         </button>
         <button 
-           onClick={() => setStatsViewMode('CALENDAR')}
+           onClick={() => { setStatsViewMode('CALENDAR'); SoundService.playClick(); }}
            className={`flex-1 py-3 px-4 rounded-xl text-lg font-medium transition-colors ${statsViewMode === 'CALENDAR' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}
         >
           Calendar
@@ -535,7 +549,7 @@ const App: React.FC = () => {
     <div className="h-[100dvh] w-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-blue-600/30 overflow-hidden flex flex-col transition-colors duration-300">
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3 pointer-events-none w-full max-w-md px-4">
         {notifications.map((note, idx) => (
-          <div key={idx} className="bg-zinc-800/95 backdrop-blur border border-zinc-700 text-white py-3 px-6 rounded-full shadow-2xl animate-fade-in flex items-center gap-3">
+          <div key={idx} className="bg-zinc-800/95 backdrop-blur border border-zinc-700 text-white py-3 px-6 rounded-full shadow-2xl animate-pop-in flex items-center gap-3">
              <Bell size={18} className="text-blue-500" /> 
              <span className="font-medium">{note}</span>
           </div>
@@ -544,7 +558,7 @@ const App: React.FC = () => {
 
       <Navigation 
         currentView={currentView} 
-        setView={setCurrentView} 
+        setView={(v) => { setCurrentView(v); SoundService.playClick(); }} 
         onLogout={handleLogout} 
         installPWA={handleInstallPWA}
         canInstall={!!deferredPrompt}
@@ -552,7 +566,7 @@ const App: React.FC = () => {
 
       <div className="md:hidden flex-1 flex flex-col relative overflow-hidden">
         {showMobileHeader && (
-        <div className="flex-shrink-0 pt-6 px-4 flex justify-between items-center mb-2">
+        <div className="flex-shrink-0 pt-6 px-4 flex justify-between items-center mb-2 animate-fade-in">
             <div>
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-white mb-0.5">Hi, {currentUser.name}</h1>
               <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
@@ -579,12 +593,12 @@ const App: React.FC = () => {
             {currentView === ViewState.DASHBOARD && renderDashboardWidgets()}
             {currentView === ViewState.STATS && renderStatsWidgets()}
             {currentView === ViewState.ADVISOR && (
-               <div className="h-full px-4">
+               <div className="h-full px-4 animate-fade-in">
                  <Advisor users={users} todayStatus={currentViewStatuses} myStats={myStats} userGoal={currentUser.targetDaysPerWeek || 4} dateLabel={viewDateLabel} />
                </div>
             )}
             {currentView === ViewState.DISCUSS && (
-               <div className="h-full flex flex-col">
+               <div className="h-full flex flex-col animate-fade-in">
                  <DiscussionBoard 
                     currentUser={currentUser} 
                     users={users} 
@@ -598,6 +612,7 @@ const App: React.FC = () => {
                </div>
             )}
             {currentView === ViewState.PROFILE && (
+                <div className="animate-fade-in">
                 <ProfileSettings 
                     user={currentUser} 
                     onUpdateUser={handleUpdateProfile} 
@@ -605,8 +620,9 @@ const App: React.FC = () => {
                     toggleTheme={toggleTheme} 
                     onNavigateToFeedback={() => setCurrentView(ViewState.FEEDBACK)}
                 />
+                </div>
             )}
-            {currentView === ViewState.FEEDBACK && <Feedback />}
+            {currentView === ViewState.FEEDBACK && <div className="animate-fade-in"><Feedback /></div>}
         </div>
       </div>
 
@@ -669,7 +685,7 @@ const App: React.FC = () => {
                                 return (
                                     <button 
                                         key={offset}
-                                        onClick={() => setDateOffset(offset)}
+                                        onClick={() => { setDateOffset(offset); SoundService.playClick(); }}
                                         className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${isSelected ? 'bg-blue-600 text-white' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                                     >
                                         {label} <span className="text-xs opacity-60 ml-1">{dayNum}</span>

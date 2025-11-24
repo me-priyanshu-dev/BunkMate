@@ -4,6 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
     
     <!-- SEO & Social Sharing -->
     <title>BunkMate - Squad Attendance Planner</title>
@@ -13,14 +14,17 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://bunkmate.vercel.app/" />
     <meta property="og:title" content="BunkMate - Should we go to school today?" />
-    <meta property="og:description" content="Coordinate attendance with your friends in real-time. See who is going, check your stats, and decide together." />
-    <meta property="og:image" content="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80" />
+    <meta property="og:description" content="Don't decide alone. See who's going, track your attendance stats, and chat with your squad in real-time." />
+    <!-- Updated with a high-quality aesthetic "Planning/Student" image -->
+    <meta property="og:image" content="https://images.unsplash.com/photo-1491975474562-1f4e30bc9468?auto=format&fit=crop&w=1200&h=630&q=80" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:title" content="BunkMate - Squad Attendance Planner" />
     <meta property="twitter:description" content="Coordinate attendance with your friends in real-time." />
-    <meta property="twitter:image" content="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80" />
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1491975474562-1f4e30bc9468?auto=format&fit=crop&w=1200&h=630&q=80" />
 
     <!-- Favicon (Graduation Cap Emoji) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
@@ -34,6 +38,25 @@
           extend: {
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
+            },
+            animation: {
+              'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+              'slide-in-right': 'slideInRight 0.3s ease-out forwards',
+              'bounce-soft': 'bounceSoft 2s infinite',
+            },
+            keyframes: {
+              popIn: {
+                '0%': { opacity: '0', transform: 'scale(0.8)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
+              },
+              slideInRight: {
+                '0%': { opacity: '0', transform: 'translateX(20px)' },
+                '100%': { opacity: '1', transform: 'translateX(0)' },
+              },
+              bounceSoft: {
+                '0%, 100%': { transform: 'translateY(-3px)' },
+                '50%': { transform: 'translateY(3px)' },
+              }
             }
           }
         }
@@ -51,9 +74,16 @@
       .animate-fade-in {
         animation: fadeIn 0.3s ease-in-out;
       }
+      .animate-slide-up {
+        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes slideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
       }
     </style>
   <script type="importmap">

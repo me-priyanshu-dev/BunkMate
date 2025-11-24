@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Message, TypingStatus, Poll } from '../types';
 import { Send, Users, MessageSquare, Reply, Smile, Check, CheckCheck, ArrowDown, BarChart2, Plus, X, Trash2 } from 'lucide-react';
 
@@ -39,13 +39,15 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
 
     // Detect direction once to distinguish scroll vs swipe
     if (!isHorizontalSwipe.current) {
-        // If horizontal movement is dominant and significant
+        // If vertical movement is significant, let browser handle scroll
+        if (Math.abs(diffY) > 10) {
+            startX.current = null;
+            startY.current = null;
+            return;
+        }
+        // If horizontal movement is dominant
         if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 5) {
             isHorizontalSwipe.current = true;
-        } else if (Math.abs(diffY) > 5) {
-            // It's a vertical scroll, reset swipe logic
-            startX.current = null;
-            return;
         }
     }
 
@@ -59,7 +61,6 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
 
   const handleTouchEnd = () => {
     if (translateX > 50) {
-        // Trigger haptic feedback if supported
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
             navigator.vibrate(10);
         }
@@ -80,13 +81,14 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
 
   return (
     <div 
-        className="relative touch-pan-y w-full"
+        className="relative w-full"
+        style={{ touchAction: 'pan-y' }} // Explicitly allow vertical scrolling
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchCancel}
     >
-        {/* Reply Icon Indicator (Appears when swiping) */}
+        {/* Reply Icon Indicator */}
         <div 
             className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center text-zinc-400 z-0 pointer-events-none"
             style={{ 
@@ -133,27 +135,26 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     setShowScrollButton(false);
   };
 
-  // Robust Scroll Logic using useLayoutEffect
-  useLayoutEffect(() => {
+  // Improved Scroll Logic using useEffect
+  useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const { scrollHeight, clientHeight, scrollTop } = container;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
     const isNewMessage = messages.length > lastMessageCount.current;
     
-    // 1. Initial Load or Reset: Snap to bottom instantly
+    // 1. Initial Load: Snap to bottom
     if (lastMessageCount.current === 0 && messages.length > 0) {
         scrollToBottom('instant');
     } 
     // 2. New Message Arrived
     else if (isNewMessage) {
-        // If I sent it, or I was already near bottom, auto-scroll
         const lastMsg = messages[messages.length - 1];
+        // If I sent it, or I was already near bottom, auto-scroll
         if (lastMsg.userId === currentUser.id || isNearBottom) {
              scrollToBottom('smooth');
         } else {
-             // User is reading history, show button
              setShowScrollButton(true);
         }
     }
@@ -175,8 +176,9 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-    setShowScrollButton(!isNearBottom);
+    // Show button if more than 150px away from bottom
+    const isAwayFromBottom = scrollHeight - scrollTop - clientHeight > 150;
+    setShowScrollButton(isAwayFromBottom);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -258,7 +260,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
 
       {/* Messages Area */}
       <div 
-        className="flex-grow overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/50 p-4 space-y-2 transition-colors overscroll-contain relative"
+        className="flex-grow overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/50 p-4 space-y-2 transition-colors relative"
         ref={scrollContainerRef}
         onScroll={handleScroll}
       >
@@ -443,7 +445,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                  </div>
              </div>
         )}
-        <div ref={messagesEndRef} className="h-4" /> 
+        <div ref={messagesEndRef} className="h-6" /> 
       </div>
       
       {showScrollButton && (

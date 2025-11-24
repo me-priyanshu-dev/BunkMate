@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { BookOpen, Layers, GitFork, Sparkles, RefreshCw, Volume2, CheckCircle2, Check, X, HelpCircle, Search, Plus, Minus, Lightbulb, Maximize2, Minimize2, MousePointer2, Download, Eraser } from 'lucide-react';
 import { generateStudyMaterial } from '../services/geminiService';
@@ -260,13 +261,13 @@ const StudySection: React.FC = () => {
              <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-primary-200 dark:border-primary-900/50 shadow-lg shadow-primary-500/5 transition-colors duration-300">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
                     <div className="flex-1 w-full relative h-12">
-                        <Search className="absolute left-3 top-3.5 text-primary-400" size={20} />
+                        <Search className="absolute left-3 top-3.5 text-zinc-400 dark:text-zinc-500" size={20} />
                         <input 
                             type="text"
                             value={topic}
                             onChange={(e) => setTopic(e.target.value)}
                             placeholder="What do you want to master? (e.g. Thermodynamics)"
-                            className="w-full h-full pl-10 pr-4 bg-primary-50/50 dark:bg-primary-950/30 rounded-xl focus:ring-2 focus:ring-primary-500 dark:text-primary-50 border border-primary-200 dark:border-primary-800 focus:border-primary-300 placeholder-primary-400 dark:placeholder-primary-700/50 text-primary-900 transition-all"
+                            className="w-full h-full pl-10 pr-4 rounded-xl transition-all bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
                             onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
                         />
                     </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus, Poll } from './types';
 import { 
@@ -17,7 +18,8 @@ import {
   markMessageAsRead,
   upsertRemoteUser,
   saveRemoteStatus,
-  voteOnPoll
+  voteOnPoll,
+  updateUserProfile
 } from './services/mockData';
 import { 
   connectMQTT, 
@@ -38,6 +40,8 @@ import CalendarView from './components/CalendarView';
 import Advisor from './components/Advisor';
 import Onboarding from './components/Onboarding';
 import DiscussionBoard from './components/DiscussionBoard';
+import ProfileSettings from './components/ProfileSettings';
+import Feedback from './components/Feedback';
 import { Bell, Wifi, WifiOff, LogOut, Calendar } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -56,6 +60,7 @@ const App: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [dateOffset, setDateOffset] = useState(0); // 0 = Today, 1 = Tomorrow, 2 = Day After
   const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   
   // Safe initialization of Notification permission
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(() => {
@@ -82,6 +87,17 @@ const App: React.FC = () => {
         }
     }
   };
+
+  // Theme Logic
+  useEffect(() => {
+    if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   // Load Initial Data
   useEffect(() => {
@@ -159,6 +175,7 @@ const App: React.FC = () => {
     if (topic.includes('/heartbeat')) {
       const remoteUser = data as User;
       if (remoteUser.id !== currentUser.id) {
+         // This handles name/avatar updates from remote users too
          upsertRemoteUser(remoteUser);
       }
     } else if (topic.includes('/status')) {
@@ -177,7 +194,7 @@ const App: React.FC = () => {
              const name = who?.name || 'Friend';
              const text = `${name} is ${statusObj.status === 'GOING' ? 'Going' : 'Not Going'} ${statusObj.date === todayDate ? 'today' : 'on ' + statusObj.date}`;
              addNotification(text);
-             if (document.visibilityState === 'hidden' || true) {
+             if (document.visibilityState === 'hidden') {
                  sendSystemNotification("Squad Update", text);
              }
          }
@@ -209,7 +226,6 @@ const App: React.FC = () => {
         }
     } else if (topic.includes('/reaction')) {
         const { messageId, emoji, userId } = data;
-        // FIX: Ignore my own reactions echoing back from server to prevent toggling off
         if (userId !== currentUser.id) {
             const updatedMsgs = addReactionToMessage(messageId, emoji, userId);
             setMessages(updatedMsgs);
@@ -288,6 +304,16 @@ const App: React.FC = () => {
       publishPollVote(messageId, optionId, currentUser.id);
   }
 
+  const handleUpdateProfile = (updates: Partial<User>) => {
+      if (!currentUser) return;
+      const updatedUser = updateUserProfile(currentUser.id, updates);
+      if (updatedUser) {
+          setCurrentUser(updatedUser);
+          // Broadcast update so others see new name/avatar immediately
+          publishHeartbeat(updatedUser);
+      }
+  };
+
   const handleOnboardingComplete = (name: string, classCode: string, targetDays: number, isNew: boolean, existingUser?: User) => {
     let user;
     if (isNew) {
@@ -361,7 +387,7 @@ const App: React.FC = () => {
   // Helper render functions
   const renderDashboardWidgets = () => (
     <>
-      <div className="bg-zinc-900 p-1.5 rounded-2xl mb-6 border border-zinc-800 flex relative">
+      <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-2xl mb-6 border border-zinc-200 dark:border-zinc-800 flex relative transition-colors duration-300">
          <div className="absolute top-1.5 bottom-1.5 rounded-xl bg-blue-600 transition-all duration-300 ease-out" 
               style={{ 
                   width: 'calc(33.33% - 4px)', 
@@ -376,10 +402,10 @@ const App: React.FC = () => {
                  <button 
                     key={offset}
                     onClick={() => setDateOffset(offset)}
-                    className={`flex-1 relative z-10 py-2.5 rounded-xl text-sm font-medium transition-colors flex flex-col items-center leading-none gap-1 ${isSelected ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`flex-1 relative z-10 py-2.5 rounded-xl text-sm font-medium transition-colors flex flex-col items-center leading-none gap-1 ${isSelected ? 'text-white' : 'text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
                  >
                     <span>{label}</span>
-                    <span className={`text-[10px] ${isSelected ? 'text-blue-200' : 'text-zinc-600'}`}>{dayNum}</span>
+                    <span className={`text-[10px] ${isSelected ? 'text-blue-100' : 'text-zinc-400 dark:text-zinc-600'}`}>{dayNum}</span>
                  </button>
              );
          })}
@@ -407,13 +433,13 @@ const App: React.FC = () => {
       <div className="flex gap-4 mb-2 flex-shrink-0">
         <button 
            onClick={() => setStatsViewMode('CHART')}
-           className={`flex-1 py-3 px-4 rounded-xl text-lg font-medium transition-colors ${statsViewMode === 'CHART' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+           className={`flex-1 py-3 px-4 rounded-xl text-lg font-medium transition-colors ${statsViewMode === 'CHART' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}
         >
           Overview & Rank
         </button>
         <button 
            onClick={() => setStatsViewMode('CALENDAR')}
-           className={`flex-1 py-3 px-4 rounded-xl text-lg font-medium transition-colors ${statsViewMode === 'CALENDAR' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+           className={`flex-1 py-3 px-4 rounded-xl text-lg font-medium transition-colors ${statsViewMode === 'CALENDAR' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}
         >
           Calendar
         </button>
@@ -431,7 +457,7 @@ const App: React.FC = () => {
   const isInteractiveView = currentView === ViewState.DISCUSS || currentView === ViewState.ADVISOR;
 
   return (
-    <div className="h-screen w-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-blue-600/30 overflow-hidden flex flex-col">
+    <div className="h-screen w-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-blue-600/30 overflow-hidden flex flex-col transition-colors duration-300">
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3 pointer-events-none w-full max-w-md px-4">
         {notifications.map((note, idx) => (
           <div key={idx} className="bg-zinc-800/95 backdrop-blur border border-zinc-700 text-white py-3 px-6 rounded-full shadow-2xl animate-fade-in flex items-center gap-3">
@@ -446,11 +472,11 @@ const App: React.FC = () => {
       <div className="md:hidden flex-1 flex flex-col relative overflow-hidden">
         <div className="flex-shrink-0 pt-6 px-4 flex justify-between items-center mb-2">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-0.5">Hi, {currentUser.name}</h1>
-              <div className="flex items-center gap-2 text-zinc-400">
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-white mb-0.5">Hi, {currentUser.name}</h1>
+              <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                   <span className="text-xs">{viewDateDisplay}</span>
                   {isConnected ? <Wifi size={14} className="text-green-500"/> : <WifiOff size={14} className="text-red-500"/>}
-                  <span className="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300 font-mono">{currentUser.classCode}</span>
+                  <span className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-600 dark:text-zinc-300 font-mono">{currentUser.classCode}</span>
               </div>
             </div>
             <div className="flex gap-2">
@@ -459,7 +485,7 @@ const App: React.FC = () => {
                       <Bell size={18} />
                   </button>
               )}
-              <button onClick={handleLogout} className="p-2.5 bg-zinc-800 rounded-full text-zinc-400 hover:text-red-400">
+              <button onClick={handleLogout} className="p-2.5 bg-zinc-200 dark:bg-zinc-800 rounded-full text-zinc-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400">
                   <LogOut size={18} />
               </button>
             </div>
@@ -487,6 +513,16 @@ const App: React.FC = () => {
                  />
                </div>
             )}
+            {currentView === ViewState.PROFILE && (
+                <ProfileSettings 
+                    user={currentUser} 
+                    onUpdateUser={handleUpdateProfile} 
+                    isDarkMode={isDarkMode} 
+                    toggleTheme={toggleTheme} 
+                    onNavigateToFeedback={() => setCurrentView(ViewState.FEEDBACK)}
+                />
+            )}
+            {currentView === ViewState.FEEDBACK && <Feedback />}
         </div>
       </div>
 
@@ -495,24 +531,24 @@ const App: React.FC = () => {
          <div className="ml-64 p-10 h-screen overflow-hidden flex flex-col">
             <div className="flex justify-between items-start mb-8 shrink-0">
               <div>
-                  <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
-                  <div className="flex items-center gap-3 text-zinc-400">
+                  <h1 className="text-4xl font-bold text-zinc-900 dark:text-white mb-2">Dashboard</h1>
+                  <div className="flex items-center gap-3 text-zinc-500 dark:text-zinc-400">
                     <span className="text-lg">{viewDateDisplay}</span>
-                    <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1 rounded-lg border border-zinc-800">
+                    <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 px-3 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800">
                       {isConnected ? <Wifi size={18} className="text-green-500"/> : <WifiOff size={18} className="text-red-500"/>}
-                      <span className="font-mono text-zinc-300">{currentUser.classCode}</span>
+                      <span className="font-mono text-zinc-700 dark:text-zinc-300">{currentUser.classCode}</span>
                     </div>
                   </div>
               </div>
               <div className="flex items-center gap-4">
                   {typeof Notification !== 'undefined' && permissionStatus === 'default' && (
-                      <button onClick={requestNotificationPermission} className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 text-blue-400 rounded-xl hover:bg-blue-600/30 font-medium">
+                      <button onClick={requestNotificationPermission} className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600/30 font-medium">
                           <Bell size={18} /> Enable Notifications
                       </button>
                   )}
-                  <div className="flex items-center gap-3 bg-zinc-900 p-2 pr-4 rounded-full border border-zinc-800">
-                      <img src={currentUser.avatar} alt={currentUser.name} className="w-10 h-10 rounded-full bg-zinc-800" />
-                      <span className="font-medium text-white">{currentUser.name}</span>
+                  <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 p-2 pr-4 rounded-full border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                      <img src={currentUser.avatar} alt={currentUser.name} className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800" />
+                      <span className="font-medium text-zinc-900 dark:text-white">{currentUser.name}</span>
                   </div>
               </div>
             </div>
@@ -521,9 +557,9 @@ const App: React.FC = () => {
               {currentView === ViewState.DASHBOARD && (
                   <>
                     <div className="col-span-8 space-y-8 overflow-y-auto pr-2">
-                        <div className="flex items-center gap-4 bg-zinc-900 p-2 rounded-2xl border border-zinc-800 w-fit">
-                            <Calendar className="ml-2 text-zinc-500" size={20} />
-                            <div className="h-6 w-px bg-zinc-700"></div>
+                        <div className="flex items-center gap-4 bg-white dark:bg-zinc-900 p-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 w-fit shadow-sm">
+                            <Calendar className="ml-2 text-zinc-400 dark:text-zinc-500" size={20} />
+                            <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700"></div>
                             {[0, 1, 2].map(offset => {
                                 const { label, dateStr } = getDateWithOffset(offset);
                                 const isSelected = dateOffset === offset;
@@ -532,7 +568,7 @@ const App: React.FC = () => {
                                     <button 
                                         key={offset}
                                         onClick={() => setDateOffset(offset)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${isSelected ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'}`}
+                                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${isSelected ? 'bg-blue-600 text-white' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                                     >
                                         {label} <span className="text-xs opacity-60 ml-1">{dayNum}</span>
                                     </button>
@@ -587,6 +623,24 @@ const App: React.FC = () => {
               {currentView === ViewState.ADVISOR && (
                   <div className="col-span-8 col-start-3 h-full">
                     <Advisor users={users} todayStatus={currentViewStatuses} myStats={myStats} userGoal={currentUser.targetDaysPerWeek || 4} dateLabel={viewDateLabel} />
+                  </div>
+              )}
+
+              {currentView === ViewState.PROFILE && (
+                  <div className="col-span-6 col-start-4">
+                      <ProfileSettings 
+                        user={currentUser} 
+                        onUpdateUser={handleUpdateProfile} 
+                        isDarkMode={isDarkMode} 
+                        toggleTheme={toggleTheme} 
+                        onNavigateToFeedback={() => setCurrentView(ViewState.FEEDBACK)}
+                      />
+                  </div>
+              )}
+
+              {currentView === ViewState.FEEDBACK && (
+                  <div className="col-span-6 col-start-4">
+                      <Feedback />
                   </div>
               )}
             </div>

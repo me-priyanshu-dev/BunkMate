@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -65,5 +66,7 @@ export enum ViewState {
   DASHBOARD = 'DASHBOARD',
   STATS = 'STATS',
   ADVISOR = 'ADVISOR',
-  DISCUSS = 'DISCUSS'
+  DISCUSS = 'DISCUSS',
+  PROFILE = 'PROFILE',
+  FEEDBACK = 'FEEDBACK'
 }

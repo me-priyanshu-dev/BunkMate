@@ -225,10 +225,12 @@ const StudySection: React.FC = () => {
                   <div className="flex flex-col gap-6 ml-12 relative">
                       {/* Connector Line */}
                       <svg className="absolute top-0 bottom-0 -left-12 w-12 h-full pointer-events-none overflow-visible z-0">
-                          {node.children!.map((child, i, arr) => {
-                              // Simplified connector visualization for React flow (horizontal tree)
-                              return null;
-                          })}
+                          <defs>
+                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="rgba(var(--p-500), 0.3)" />
+                                <stop offset="100%" stopColor="rgba(var(--p-500), 0.1)" />
+                            </linearGradient>
+                          </defs>
                           <path d={`M 0,${50}% C 25,${50}% 25,${50}% 48,${50}%`} stroke="url(#gradient)" strokeWidth="2" fill="none" />
                       </svg>
                       
@@ -257,24 +259,24 @@ const StudySection: React.FC = () => {
         <div className={`p-4 ${isFullScreen ? 'fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-black/90 backdrop-blur' : ''}`}>
              <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-primary-200 dark:border-primary-900/50 shadow-lg shadow-primary-500/5 transition-colors duration-300">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
-                    <div className="flex-1 w-full relative">
+                    <div className="flex-1 w-full relative h-12">
                         <Search className="absolute left-3 top-3.5 text-primary-400" size={20} />
                         <input 
                             type="text"
                             value={topic}
                             onChange={(e) => setTopic(e.target.value)}
                             placeholder="What do you want to master? (e.g. Thermodynamics)"
-                            className="w-full pl-10 pr-4 h-12 bg-primary-50/50 dark:bg-primary-950/30 rounded-xl focus:ring-2 focus:ring-primary-500 dark:text-primary-50 border border-primary-200 dark:border-primary-800 focus:border-primary-300 placeholder-primary-400 dark:placeholder-primary-700/50 text-primary-900 transition-all"
+                            className="w-full h-full pl-10 pr-4 bg-primary-50/50 dark:bg-primary-950/30 rounded-xl focus:ring-2 focus:ring-primary-500 dark:text-primary-50 border border-primary-200 dark:border-primary-800 focus:border-primary-300 placeholder-primary-400 dark:placeholder-primary-700/50 text-primary-900 transition-all"
                             onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
                         />
                     </div>
                     
-                    <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
+                    <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto h-12">
                         {(['NOTES', 'MINDMAP'] as Tab[]).map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`px-5 h-12 rounded-xl text-sm font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${
+                                className={`px-5 h-full rounded-xl text-sm font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${
                                     activeTab === tab 
                                     ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30 border-primary-500' 
                                     : 'bg-white dark:bg-zinc-800 text-zinc-500 hover:bg-primary-50 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700'

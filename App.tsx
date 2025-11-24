@@ -42,7 +42,7 @@ import Onboarding from './components/Onboarding';
 import DiscussionBoard from './components/DiscussionBoard';
 import ProfileSettings from './components/ProfileSettings';
 import Feedback from './components/Feedback';
-import { Bell, Wifi, WifiOff, LogOut, Calendar } from 'lucide-react';
+import { Bell, Wifi, WifiOff, LogOut, Calendar, Timer } from 'lucide-react';
 
 const App: React.FC = () => {
   // Initialize state lazily to prevent flickering on load
@@ -60,8 +60,20 @@ const App: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [dateOffset, setDateOffset] = useState(0); // 0 = Today, 1 = Tomorrow, 2 = Day After
   const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
-  const [isDarkMode, setIsDarkMode] = useState(true);
   
+  // Theme Persistence
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('bunkmate_theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return true;
+  });
+  
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
   // Safe initialization of Notification permission
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(() => {
     if (typeof Notification !== 'undefined') {
@@ -88,12 +100,31 @@ const App: React.FC = () => {
     }
   };
 
+  // PWA Prompt Listener
+  useEffect(() => {
+      const handler = (e: any) => {
+          e.preventDefault();
+          setDeferredPrompt(e);
+      };
+      window.addEventListener('beforeinstallprompt', handler);
+      return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallPWA = () => {
+      if (deferredPrompt) {
+          deferredPrompt.prompt();
+          setDeferredPrompt(null);
+      }
+  };
+
   // Theme Logic
   useEffect(() => {
     if (isDarkMode) {
         document.documentElement.classList.add('dark');
+        localStorage.setItem('bunkmate_theme', 'dark');
     } else {
         document.documentElement.classList.remove('dark');
+        localStorage.setItem('bunkmate_theme', 'light');
     }
   }, [isDarkMode]);
 
@@ -271,9 +302,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateStatus = (status: StatusType) => {
+  const handleUpdateStatus = (status: StatusType, note?: string) => {
     if (!currentUser) return;
-    const newStatus = saveStatus(currentUser.id, status, viewDateStr);
+    const newStatus = saveStatus(currentUser.id, status, viewDateStr, note);
     setStatuses(getStatuses()); 
     publishStatus(newStatus);
   };
@@ -364,6 +395,17 @@ const App: React.FC = () => {
     return currentViewStatuses.find(s => s.userId === currentUser?.id)?.status || 'UNDECIDED';
   }, [currentViewStatuses, currentUser]);
 
+  // Exam Logic
+  const examDaysLeft = useMemo(() => {
+      if (!currentUser?.examDate) return null;
+      const exam = new Date(currentUser.examDate);
+      const today = new Date();
+      const diffTime = exam.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      return diffDays;
+  }, [currentUser?.examDate]);
+
+
   const recommendation = useMemo(() => {
     if (!currentUser) return undefined;
     const othersStatuses = currentViewStatuses.filter(s => s.userId !== currentUser.id);
@@ -420,6 +462,25 @@ const App: React.FC = () => {
              );
          })}
       </div>
+
+      {/* Exam Countdown Widget */}
+      {currentUser.examDate && examDaysLeft !== null && (
+          <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-5 mb-6 text-white shadow-lg animate-fade-in relative overflow-hidden">
+             <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
+                 <Timer size={120} />
+             </div>
+             <div className="relative z-10 flex justify-between items-end">
+                 <div>
+                     <p className="text-violet-200 text-xs font-bold uppercase tracking-wider mb-1">Target Exam</p>
+                     <h3 className="text-xl font-bold">{currentUser.examName || 'Upcoming Exam'}</h3>
+                 </div>
+                 <div className="text-right">
+                     <span className="text-4xl font-bold block leading-none">{examDaysLeft}</span>
+                     <span className="text-violet-200 text-xs">Days Left</span>
+                 </div>
+             </div>
+          </div>
+      )}
 
       <StatusCard 
         user={currentUser} 
@@ -478,7 +539,13 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      <Navigation currentView={currentView} setView={setCurrentView} onLogout={handleLogout} />
+      <Navigation 
+        currentView={currentView} 
+        setView={setCurrentView} 
+        onLogout={handleLogout} 
+        installPWA={handleInstallPWA}
+        canInstall={!!deferredPrompt}
+      />
 
       <div className="md:hidden flex-1 flex flex-col relative overflow-hidden">
         {showMobileHeader && (
@@ -571,6 +638,24 @@ const App: React.FC = () => {
               {currentView === ViewState.DASHBOARD && (
                   <>
                     <div className="col-span-8 space-y-8 overflow-y-auto pr-2">
+                        {/* Exam Widget for Desktop */}
+                        {currentUser.examDate && examDaysLeft !== null && (
+                            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex justify-between items-center">
+                                <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4">
+                                    <Timer size={140} />
+                                </div>
+                                <div>
+                                    <p className="text-violet-200 text-sm font-bold uppercase tracking-wider mb-2">Countdown to Victory</p>
+                                    <h3 className="text-3xl font-bold">{currentUser.examName}</h3>
+                                    <p className="text-violet-100 opacity-80 mt-1">{new Date(currentUser.examDate).toDateString()}</p>
+                                </div>
+                                <div className="text-right z-10">
+                                    <span className="text-6xl font-bold block">{examDaysLeft}</span>
+                                    <span className="text-violet-200 font-medium">Days Remaining</span>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-center gap-4 bg-white dark:bg-zinc-900 p-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 w-fit shadow-sm">
                             <Calendar className="ml-2 text-zinc-400 dark:text-zinc-500" size={20} />
                             <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700"></div>

@@ -1,15 +1,17 @@
 
 import React from 'react';
 import { ViewState } from '../types';
-import { Home, BarChart2, MessageSquare, Bot, LogOut, User, MessageCircle } from 'lucide-react';
+import { Home, BarChart2, MessageSquare, Bot, LogOut, User, MessageCircle, Download } from 'lucide-react';
 
 interface Props {
   currentView: ViewState;
   setView: (view: ViewState) => void;
   onLogout?: () => void;
+  installPWA?: () => void;
+  canInstall?: boolean;
 }
 
-const Navigation: React.FC<Props> = ({ currentView, setView, onLogout }) => {
+const Navigation: React.FC<Props> = ({ currentView, setView, onLogout, installPWA, canInstall }) => {
   const navItems = [
     { view: ViewState.DASHBOARD, icon: Home, label: 'Overview' },
     { view: ViewState.DISCUSS, icon: MessageSquare, label: 'Chat' },
@@ -75,6 +77,16 @@ const Navigation: React.FC<Props> = ({ currentView, setView, onLogout }) => {
               <span className="text-lg">Feedback</span>
             </button>
         </nav>
+
+        {canInstall && installPWA && (
+            <button
+                onClick={installPWA}
+                className="flex items-center gap-4 px-4 py-4 mb-4 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl transition-colors"
+            >
+                <Download size={24} />
+                <span className="text-lg font-medium">Install App</span>
+            </button>
+        )}
 
         {onLogout && (
           <button 

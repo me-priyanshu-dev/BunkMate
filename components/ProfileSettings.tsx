@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { User as UserIcon, Moon, Sun, RefreshCw, Save, Hash, MessageCircle } from 'lucide-react';
+import { User as UserIcon, Moon, Sun, RefreshCw, Save, Hash, MessageCircle, Calendar } from 'lucide-react';
 
 interface Props {
   user: User;
@@ -15,11 +15,19 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
   const [name, setName] = useState(user.name);
   const [targetDays, setTargetDays] = useState(user.targetDaysPerWeek || 4);
   const [avatarSeed, setAvatarSeed] = useState(user.avatar.split('seed=')[1]?.split('&')[0] || 'default');
+  const [examName, setExamName] = useState(user.examName || '');
+  const [examDate, setExamDate] = useState(user.examDate || '');
   const [isSaved, setIsSaved] = useState(false);
 
   const handleSave = () => {
     const newAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
-    onUpdateUser({ name, targetDaysPerWeek: targetDays, avatar: newAvatar });
+    onUpdateUser({ 
+        name, 
+        targetDaysPerWeek: targetDays, 
+        avatar: newAvatar,
+        examName,
+        examDate
+    });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };
@@ -63,7 +71,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
         </div>
 
         {/* Form Fields */}
-        <div className="space-y-4">
+        <div className="space-y-5">
             <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Display Name</label>
                 <input 
@@ -72,6 +80,35 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
                 />
+            </div>
+
+            {/* Exam Settings */}
+            <div className="bg-zinc-50 dark:bg-zinc-950/50 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
+                <div className="flex items-center gap-2 mb-2 text-zinc-900 dark:text-white font-medium">
+                    <Calendar size={18} className="text-blue-500" />
+                    <h3>Exam Countdown</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-medium text-zinc-500 mb-1.5">Target Exam</label>
+                        <input 
+                            type="text" 
+                            placeholder="e.g. JEE Mains"
+                            value={examName}
+                            onChange={(e) => setExamName(e.target.value)}
+                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-zinc-500 mb-1.5">Exam Date</label>
+                        <input 
+                            type="date" 
+                            value={examDate}
+                            onChange={(e) => setExamDate(e.target.value)}
+                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                    </div>
+                </div>
             </div>
             
              <div>

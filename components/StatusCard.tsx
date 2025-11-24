@@ -1,12 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { User, StatusType } from '../types';
-import { Check, X, CircleDashed, Lightbulb, AlertTriangle, PartyPopper } from 'lucide-react';
+import { Check, X, CircleDashed, Lightbulb, AlertTriangle, PartyPopper, PenLine } from 'lucide-react';
 
 interface Props {
   user: User;
   status: StatusType;
-  onUpdateStatus: (status: StatusType) => void;
+  onUpdateStatus: (status: StatusType, note?: string) => void;
   recommendation?: {
     shouldGo: boolean;
     message: string;
@@ -16,7 +16,13 @@ interface Props {
 }
 
 const StatusCard: React.FC<Props> = ({ user, status, onUpdateStatus, recommendation, dateLabel }) => {
+  const [note, setNote] = useState('');
   
+  const handleUpdate = (newStatus: StatusType) => {
+      onUpdateStatus(newStatus, note);
+      setNote(''); // Clear note after sending
+  };
+
   const getSeverityStyle = (severity?: string) => {
     switch(severity) {
       case 'critical': return { bg: 'bg-red-50 dark:bg-red-500/10', border: 'border-red-200 dark:border-red-500/30', text: 'text-red-700 dark:text-red-200', icon: AlertTriangle, iconColor: 'text-red-500' };
@@ -56,9 +62,21 @@ const StatusCard: React.FC<Props> = ({ user, status, onUpdateStatus, recommendat
         <h2 className="text-zinc-500 dark:text-zinc-400 text-sm md:text-base font-semibold uppercase tracking-wider">{dateLabel}'s Decision</h2>
       )}
       
+      {/* Note Input */}
+      <div className="bg-zinc-50 dark:bg-zinc-950/50 rounded-xl px-4 py-3 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
+         <PenLine size={18} className="text-zinc-400" />
+         <input 
+            type="text" 
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add context (e.g. 'Sick', 'Studying for Test')..." 
+            className="bg-transparent border-none focus:ring-0 text-sm w-full text-zinc-800 dark:text-zinc-200 placeholder-zinc-500"
+         />
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <button
-          onClick={() => onUpdateStatus('GOING')}
+          onClick={() => handleUpdate('GOING')}
           className={`group flex items-center justify-center gap-4 sm:flex-col sm:gap-4 p-4 md:p-6 rounded-2xl border-2 transition-all duration-200 ${
             status === 'GOING' 
               ? 'bg-green-50 dark:bg-green-500/10 border-green-500 dark:border-green-600 text-green-600 dark:text-green-400' 
@@ -72,7 +90,7 @@ const StatusCard: React.FC<Props> = ({ user, status, onUpdateStatus, recommendat
         </button>
 
         <button
-          onClick={() => onUpdateStatus('NOT_GOING')}
+          onClick={() => handleUpdate('NOT_GOING')}
           className={`group flex items-center justify-center gap-4 sm:flex-col sm:gap-4 p-4 md:p-6 rounded-2xl border-2 transition-all duration-200 ${
             status === 'NOT_GOING' 
               ? 'bg-red-50 dark:bg-red-500/10 border-red-500 dark:border-red-600 text-red-600 dark:text-red-400' 
@@ -86,7 +104,7 @@ const StatusCard: React.FC<Props> = ({ user, status, onUpdateStatus, recommendat
         </button>
 
         <button
-          onClick={() => onUpdateStatus('UNDECIDED')}
+          onClick={() => handleUpdate('UNDECIDED')}
           className={`group flex items-center justify-center gap-4 sm:flex-col sm:gap-4 p-4 md:p-6 rounded-2xl border-2 transition-all duration-200 ${
             status === 'UNDECIDED' 
               ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400' 

@@ -144,7 +144,9 @@ export const upsertRemoteUser = (remoteUser: Partial<User>) => {
       ...users[existingIndex], 
       ...remoteUser, 
       isCurrentUser: isMe,
-      targetDaysPerWeek: remoteUser.targetDaysPerWeek || existingTarget
+      targetDaysPerWeek: remoteUser.targetDaysPerWeek || existingTarget,
+      examName: remoteUser.examName || users[existingIndex].examName,
+      examDate: remoteUser.examDate || users[existingIndex].examDate
     };
   } else {
     // Add new remote user
@@ -155,7 +157,9 @@ export const upsertRemoteUser = (remoteUser: Partial<User>) => {
       classCode: remoteUser.classCode || '',
       isCurrentUser: false,
       lastSeen: remoteUser.lastSeen,
-      targetDaysPerWeek: remoteUser.targetDaysPerWeek || 4
+      targetDaysPerWeek: remoteUser.targetDaysPerWeek || 4,
+      examName: remoteUser.examName,
+      examDate: remoteUser.examDate
     });
   }
   
@@ -183,12 +187,12 @@ export const getStatuses = (): DailyStatus[] => {
   return statusesCache!;
 };
 
-export const saveStatus = (userId: string, status: StatusType, date: string = getTodayDateString()) => {
+export const saveStatus = (userId: string, status: StatusType, date: string = getTodayDateString(), note?: string) => {
   const statuses = getStatuses();
   const existingIndex = statuses.findIndex(s => s.userId === userId && s.date === date);
   
   const timestamp = Date.now();
-  const newStatusObj = { userId, date, status, timestamp };
+  const newStatusObj: DailyStatus = { userId, date, status, timestamp, note };
   let updatedStatuses = [...statuses];
 
   if (existingIndex >= 0) {
@@ -264,24 +268,19 @@ export const addReactionToMessage = (messageId: string, emoji: string, userId: s
     if (msgIndex === -1) return msgs;
 
     const msg = msgs[msgIndex];
-    // Create a shallow copy of reactions to avoid mutation issues, handling undefined
     const reactions = msg.reactions ? { ...msg.reactions } : {};
     
-    // 1. Check if user already reacted with THIS emoji (to handle toggle off)
     const alreadyReactedWithThis = reactions[emoji]?.includes(userId);
 
-    // 2. Remove user from ALL reaction arrays (enforce single reaction limit)
     Object.keys(reactions).forEach(key => {
         if (reactions[key]) {
             reactions[key] = reactions[key].filter(id => id !== userId);
-            // Cleanup empty arrays
             if (reactions[key].length === 0) {
                 delete reactions[key];
             }
         }
     });
 
-    // 3. If they weren't toggling off the current one, add them to the new one
     if (!alreadyReactedWithThis) {
         if (!reactions[emoji]) reactions[emoji] = [];
         reactions[emoji].push(userId);

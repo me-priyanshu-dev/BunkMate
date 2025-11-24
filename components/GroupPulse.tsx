@@ -94,6 +94,7 @@ const GroupPulse: React.FC<Props> = ({ users, statuses, onRefresh, currentUser, 
           const statusType = userStatus?.status || 'UNDECIDED';
           const online = isOnline(user.lastSeen);
           const display = getStatusDisplay(statusType);
+          const note = userStatus?.note;
 
           return (
             <div 
@@ -114,9 +115,17 @@ const GroupPulse: React.FC<Props> = ({ users, statuses, onRefresh, currentUser, 
                     {user.name} 
                     {user.isCurrentUser && <span className="text-xs text-zinc-500 ml-1.5 font-normal">(You)</span>}
                   </span>
-                  <span className="text-xs font-medium text-zinc-500 block truncate">
-                    {online ? 'Online now' : 'Offline'}
-                  </span>
+                  
+                  {/* Status Note or Online Status */}
+                  {note ? (
+                      <span className="text-xs font-medium text-blue-500 dark:text-blue-400 block truncate italic">
+                        "{note}"
+                      </span>
+                  ) : (
+                      <span className="text-xs font-medium text-zinc-500 block truncate">
+                        {online ? 'Online now' : 'Offline'}
+                      </span>
+                  )}
                 </div>
               </div>
               <div className={`flex items-center gap-1.5 md:gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-xl border shrink-0 ${display.color}`}>

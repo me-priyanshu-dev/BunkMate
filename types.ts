@@ -7,6 +7,8 @@ export interface User {
   lastSeen?: number; // Timestamp of last activity
   classCode: string; // The room/group ID
   targetDaysPerWeek: number; // User's personal goal (1-7)
+  examName?: string;
+  examDate?: string; // YYYY-MM-DD
 }
 
 export type StatusType = 'GOING' | 'NOT_GOING' | 'UNDECIDED';

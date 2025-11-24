@@ -80,7 +80,7 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
 
   return (
     <div 
-        className="relative touch-pan-y"
+        className="relative touch-pan-y w-full"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -104,7 +104,7 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
         {/* Message Content */}
         <div 
             style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none' }}
-            className="relative z-10"
+            className="relative z-10 w-full"
         >
             {children}
         </div>
@@ -117,6 +117,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastMessageCount = useRef(messages.length);
   
@@ -126,50 +127,56 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
 
-  // Robust Scroll Logic using useLayoutEffect to prevent flickering
+  // Scroll to Bottom Helper
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+    setShowScrollButton(false);
+  };
+
+  // Robust Scroll Logic using useLayoutEffect
   useLayoutEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const { scrollHeight, clientHeight, scrollTop } = container;
-    // Buffer to define "near bottom"
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
     const isNewMessage = messages.length > lastMessageCount.current;
     
-    // 1. Initial Load: Snap to bottom instantly
+    // 1. Initial Load or Reset: Snap to bottom instantly
     if (lastMessageCount.current === 0 && messages.length > 0) {
-        container.scrollTop = scrollHeight;
-        setShowScrollButton(false);
+        scrollToBottom('instant');
     } 
     // 2. New Message Arrived
     else if (isNewMessage) {
-        // If user was already near bottom, auto-scroll smoothly
-        if (isNearBottom) {
-             container.scrollTo({ top: scrollHeight, behavior: 'smooth' });
-             setShowScrollButton(false);
+        // If I sent it, or I was already near bottom, auto-scroll
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg.userId === currentUser.id || isNearBottom) {
+             scrollToBottom('smooth');
         } else {
-             // User is reading history, don't interrupt, just show button
+             // User is reading history, show button
              setShowScrollButton(true);
         }
     }
 
     lastMessageCount.current = messages.length;
-  }, [messages.length, typingUsers]); // Only trigger on count change (new messages), not just reactions
+  }, [messages.length, currentUser.id]);
+
+  // Keep scroll at bottom if typing users change and we are already at bottom
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const { scrollHeight, clientHeight, scrollTop } = container;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+    if (isNearBottom) {
+        scrollToBottom('smooth');
+    }
+  }, [typingUsers.length]);
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    // Use a slightly larger threshold for showing the button
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
     setShowScrollButton(!isNearBottom);
-  };
-
-  const scrollToBottom = () => {
-    scrollContainerRef.current?.scrollTo({ 
-        top: scrollContainerRef.current.scrollHeight, 
-        behavior: 'smooth' 
-    });
-    setShowScrollButton(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -188,12 +195,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     setReplyingTo(null);
     onSendTyping(false);
     // Force immediate scroll for own message
-    setTimeout(() => {
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
-            setShowScrollButton(false);
-        }
-    }, 50);
+    setTimeout(() => scrollToBottom('smooth'), 50);
   };
 
   const handleSendPoll = () => {
@@ -210,7 +212,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     setShowPollCreator(false);
     setPollQuestion('');
     setPollOptions(['', '']);
-    setTimeout(() => scrollToBottom(), 50);
+    setTimeout(() => scrollToBottom('smooth'), 50);
   };
 
   const formatTime = (timestamp: number) => {
@@ -256,10 +258,13 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
 
       {/* Messages Area */}
       <div 
-        className="flex-grow overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/50 p-4 space-y-2 transition-colors overscroll-contain"
+        className="flex-grow overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/50 p-4 space-y-2 transition-colors overscroll-contain relative"
         ref={scrollContainerRef}
         onScroll={handleScroll}
       >
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, gray 1px, transparent 0)`, backgroundSize: '24px 24px' }}></div>
+
         {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-600 opacity-60 min-h-[300px]">
                 <div className="bg-zinc-200/50 dark:bg-zinc-800/50 p-4 rounded-full mb-3">
@@ -274,8 +279,12 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
           const isMe = msg.userId === currentUser.id;
           const showHeader = index === 0 || messages[index-1].userId !== msg.userId;
           const isNearTop = index < 3; 
-          const othersRead = msg.readBy?.some(id => id !== currentUser.id);
-          const isAllRead = othersRead; 
+          const othersRead = msg.readBy?.filter(id => id !== currentUser.id) || [];
+          const isAllRead = othersRead.length > 0;
+          
+          const readTooltip = othersRead.length > 0 
+            ? `Read by: ${othersRead.map(id => users.find(u => u.id === id)?.name || 'Unknown').join(', ')}`
+            : 'Delivered';
           
           // Date Separator Logic
           const prevMsg = messages[index - 1];
@@ -284,7 +293,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
           return (
             <React.Fragment key={msg.id}>
               {showDateSeparator && (
-                  <div className="flex justify-center my-6">
+                  <div className="flex justify-center my-6 relative z-0">
                       <span className="bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm border border-zinc-200 dark:border-zinc-700/50 backdrop-blur-sm">
                           {formatDateLabel(msg.timestamp)}
                       </span>
@@ -292,9 +301,9 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
               )}
 
               <SwipeableMessage onReply={() => setReplyingTo(msg)}>
-                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group mb-4 relative z-0 hover:z-30`}>
+                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group mb-4 relative z-0 hover:z-30 w-full`}>
                 
-                    <div className={`flex gap-2 max-w-[85%] md:max-w-[70%] ${isMe ? 'flex-row-reverse' : ''}`}>
+                    <div className={`flex gap-2 max-w-[90%] md:max-w-[75%] ${isMe ? 'flex-row-reverse' : ''}`}>
                         <div className="w-8 flex-shrink-0 flex flex-col items-center">
                             {showHeader ? (
                                 <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-800 ring-2 ring-white dark:ring-zinc-900/50 mt-1">
@@ -303,14 +312,14 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                             ) : <div className="w-8" />}
                         </div>
 
-                        <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} relative min-w-[140px]`}>
+                        <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} relative min-w-[120px] max-w-full`}>
                             {showHeader && !isMe && (
                                 <span className="text-[11px] font-bold text-zinc-500 ml-1 mb-1">{msg.userName}</span>
                             )}
 
                             {/* Reply Context Bubble */}
                             {msg.replyTo && (
-                                <div className={`mb-1 px-3 py-2 rounded-xl text-xs border-l-2 bg-zinc-200/80 dark:bg-zinc-900/80 border-zinc-400 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 w-full max-w-full truncate opacity-80 ${isMe ? 'rounded-br-none mr-1' : 'rounded-bl-none ml-1'}`}>
+                                <div className={`mb-1 px-3 py-2 rounded-xl text-xs border-l-2 bg-zinc-200/80 dark:bg-zinc-900/80 border-zinc-400 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 w-full truncate opacity-80 ${isMe ? 'rounded-br-none mr-1' : 'rounded-bl-none ml-1'}`}>
                                     <span className="font-bold text-blue-500 dark:text-blue-400 block text-[10px] mb-0.5">{msg.replyTo.userName}</span>
                                     {msg.replyTo.text}
                                 </div>
@@ -318,10 +327,10 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                             
                             {/* POLL CARD */}
                             {msg.poll ? (
-                                <div className={`p-4 rounded-2xl border ${isMe ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'} min-w-[250px]`}>
+                                <div className={`p-4 rounded-2xl border ${isMe ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'} min-w-[250px] w-full`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <BarChart2 size={16} className={isMe ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500 dark:text-zinc-400'} />
-                                        <span className={`font-bold text-sm ${isMe ? 'text-blue-800 dark:text-blue-200' : 'text-zinc-800 dark:text-zinc-200'}`}>Poll: {msg.poll.question}</span>
+                                        <span className={`font-bold text-sm ${isMe ? 'text-blue-800 dark:text-blue-200' : 'text-zinc-800 dark:text-zinc-200'} break-words`}>Poll: {msg.poll.question}</span>
                                     </div>
                                     <div className="space-y-2">
                                         {msg.poll.options.map(opt => {
@@ -339,7 +348,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                                     <div className="absolute top-0 left-0 bottom-0 bg-zinc-100 dark:bg-zinc-700/50 w-full" /> 
                                                     <div className={`absolute top-0 left-0 bottom-0 transition-all duration-500 ${isVoted ? 'bg-blue-500/20 dark:bg-blue-600/40' : 'bg-zinc-300/40 dark:bg-zinc-600/40'}`} style={{ width: `${percent}%` }} />
                                                     <div className="absolute inset-0 flex items-center justify-between px-3 text-xs font-medium z-10">
-                                                        <span className="text-zinc-900 dark:text-white flex items-center gap-2">
+                                                        <span className="text-zinc-900 dark:text-white flex items-center gap-2 truncate">
                                                             {opt.text}
                                                             {isVoted && <Check size={12} className="text-blue-500 dark:text-blue-400" />}
                                                         </span>
@@ -357,14 +366,19 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                 /* Message Bubble */
                                 <div 
                                     onDoubleClick={() => onReact(msg.id, '❤️')}
-                                    className={`relative px-4 py-2 rounded-2xl text-[15px] shadow-sm leading-relaxed break-words transition-all cursor-pointer select-none ${
+                                    className={`relative px-4 py-2 rounded-2xl text-[15px] shadow-sm leading-relaxed break-words whitespace-pre-wrap transition-all cursor-pointer select-none ${
                                     isMe 
                                     ? 'bg-blue-600 text-white rounded-tr-sm' 
                                     : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-tl-sm border border-zinc-200 dark:border-zinc-700/50'
-                                }`}>
+                                }`}
+                                    style={{ overflowWrap: 'anywhere' }}
+                                >
                                     {msg.text}
                                     
-                                    <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-blue-200' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                                    <div 
+                                        className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-blue-200' : 'text-zinc-400 dark:text-zinc-500'}`}
+                                        title={isMe ? readTooltip : ''}
+                                    >
                                         <span>{formatTime(msg.timestamp)}</span>
                                         {isMe && (
                                             isAllRead ? <CheckCheck size={14} className="text-blue-300" /> : <Check size={14} className="text-blue-300/70" />
@@ -413,7 +427,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
         })}
 
         {activeTypingUsers.length > 0 && (
-             <div className="flex items-center gap-2 ml-10 animate-fade-in mt-2">
+             <div className="flex items-center gap-2 ml-10 animate-fade-in mt-2 relative z-0">
                  <div className="bg-white/80 dark:bg-zinc-800/80 px-4 py-2 rounded-full rounded-tl-none border border-zinc-200 dark:border-zinc-700/50 flex items-center gap-2">
                     <div className="flex gap-1">
                         <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -429,12 +443,12 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                  </div>
              </div>
         )}
-        <div className="h-4" /> 
+        <div ref={messagesEndRef} className="h-4" /> 
       </div>
       
       {showScrollButton && (
         <button 
-            onClick={scrollToBottom}
+            onClick={() => scrollToBottom('smooth')}
             className="absolute bottom-24 right-6 bg-white dark:bg-zinc-800 text-blue-500 p-2.5 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700 transition-transform active:scale-95 z-50 animate-bounce"
         >
             <ArrowDown size={24} />

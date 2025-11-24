@@ -466,7 +466,7 @@ const App: React.FC = () => {
   const isInteractiveView = currentView === ViewState.DISCUSS || currentView === ViewState.ADVISOR;
 
   return (
-    <div className="h-screen w-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-blue-600/30 overflow-hidden flex flex-col transition-colors duration-300">
+    <div className="h-[100dvh] w-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-blue-600/30 overflow-hidden flex flex-col transition-colors duration-300">
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3 pointer-events-none w-full max-w-md px-4">
         {notifications.map((note, idx) => (
           <div key={idx} className="bg-zinc-800/95 backdrop-blur border border-zinc-700 text-white py-3 px-6 rounded-full shadow-2xl animate-fade-in flex items-center gap-3">
@@ -500,16 +500,17 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        <div className={`flex-1 min-h-0 px-4 pb-24 ${isInteractiveView ? 'overflow-hidden flex flex-col' : 'overflow-y-auto space-y-4 scroll-smooth'}`}>
+        {/* Content Container - Use standard padding for non-interactive views, remove for interactive */}
+        <div className={`flex-1 min-h-0 ${isInteractiveView ? 'flex flex-col overflow-hidden pb-20 px-0' : 'overflow-y-auto space-y-4 scroll-smooth px-4 pb-24'}`}>
             {currentView === ViewState.DASHBOARD && renderDashboardWidgets()}
             {currentView === ViewState.STATS && renderStatsWidgets()}
             {currentView === ViewState.ADVISOR && (
-               <div className="h-full">
+               <div className="h-full px-4">
                  <Advisor users={users} todayStatus={currentViewStatuses} myStats={myStats} userGoal={currentUser.targetDaysPerWeek || 4} dateLabel={viewDateLabel} />
                </div>
             )}
             {currentView === ViewState.DISCUSS && (
-               <div className="h-full">
+               <div className="h-full flex flex-col">
                  <DiscussionBoard 
                     currentUser={currentUser} 
                     users={users} 

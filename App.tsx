@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus, Poll } from './types';
 import { 
@@ -31,7 +32,7 @@ import {
   publishReadReceipt,
   publishPollVote
 } from './services/mqttService';
-import { SoundService } from './services/soundService';
+import { SoundService, initAudio } from './services/soundService';
 import Navigation from './components/Navigation';
 import StatusCard from './components/StatusCard';
 import GroupPulse from './components/GroupPulse';
@@ -102,14 +103,32 @@ const App: React.FC = () => {
     }
   };
 
-  // PWA Prompt Listener
+  // Audio Unlock & PWA Prompt Listener
   useEffect(() => {
+      // PWA
       const handler = (e: any) => {
           e.preventDefault();
           setDeferredPrompt(e);
       };
       window.addEventListener('beforeinstallprompt', handler);
-      return () => window.removeEventListener('beforeinstallprompt', handler);
+
+      // Audio Unlock on first interaction
+      const unlockAudio = () => {
+          initAudio();
+          window.removeEventListener('click', unlockAudio);
+          window.removeEventListener('touchstart', unlockAudio);
+          window.removeEventListener('keydown', unlockAudio);
+      };
+      window.addEventListener('click', unlockAudio);
+      window.addEventListener('touchstart', unlockAudio);
+      window.addEventListener('keydown', unlockAudio);
+
+      return () => {
+          window.removeEventListener('beforeinstallprompt', handler);
+          window.removeEventListener('click', unlockAudio);
+          window.removeEventListener('touchstart', unlockAudio);
+          window.removeEventListener('keydown', unlockAudio);
+      };
   }, []);
 
   const handleInstallPWA = () => {

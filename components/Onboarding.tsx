@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GraduationCap, ArrowRight, ShieldCheck, UserPlus, LogIn, Hash, Target, AlertCircle } from 'lucide-react';
 import { getAllUsers, checkNameExists } from '../services/mockData';
@@ -110,7 +109,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
                     placeholder="Your Unique Name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 text-lg text-white focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors placeholder-zinc-600"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 text-lg text-white focus:outline-none focus:border-blue-600 focus:ring-0 transition-colors placeholder-zinc-600"
                 />
                 
                 <div className="relative">
@@ -121,7 +120,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
                         value={classCode}
                         onChange={(e) => setClassCode(e.target.value.toUpperCase())}
                         onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-12 pr-5 py-4 text-lg text-white focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors uppercase placeholder:normal-case placeholder-zinc-600 font-mono"
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-12 pr-5 py-4 text-lg text-white focus:outline-none focus:border-blue-600 focus:ring-0 transition-colors uppercase placeholder:normal-case placeholder-zinc-600 font-mono"
                     />
                 </div>
 

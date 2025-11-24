@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User } from '../types';
 import { User as UserIcon, Moon, Sun, RefreshCw, Save, Hash, MessageCircle, Calendar } from 'lucide-react';
@@ -78,7 +77,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                     type="text" 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-0 transition-colors"
                 />
             </div>
 
@@ -96,7 +95,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                             placeholder="e.g. JEE Mains"
                             value={examName}
                             onChange={(e) => setExamName(e.target.value)}
-                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-0"
                         />
                     </div>
                     <div>
@@ -105,7 +104,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onUpdateUser, isDarkMode, togg
                             type="date" 
                             value={examDate}
                             onChange={(e) => setExamDate(e.target.value)}
-                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-0"
                         />
                     </div>
                 </div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { User, Message, TypingStatus, Poll } from '../types';
 import { Send, Users, MessageSquare, Reply, Smile, Check, CheckCheck, ArrowDown, BarChart2, Plus, X, Trash2 } from 'lucide-react';
 
@@ -118,6 +118,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMessageCount = useRef(messages.length);
   
   // Poll Creator State
   const [showPollCreator, setShowPollCreator] = useState(false);
@@ -125,27 +126,41 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
 
-  // Auto-scroll logic
-  useEffect(() => {
+  // Robust Scroll Logic using useLayoutEffect to prevent flickering
+  useLayoutEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = container;
+    const { scrollHeight, clientHeight, scrollTop } = container;
+    // Buffer to define "near bottom"
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+    const isNewMessage = messages.length > lastMessageCount.current;
     
-    // If we are near bottom or if it's the very first load/few messages
-    if (isNearBottom || messages.length < 5) {
-        container.scrollTo({ top: scrollHeight, behavior: 'smooth' });
-    } else {
-        // If we are not at bottom and new message arrives, show button
-        setShowScrollButton(true);
+    // 1. Initial Load: Snap to bottom instantly
+    if (lastMessageCount.current === 0 && messages.length > 0) {
+        container.scrollTop = scrollHeight;
+        setShowScrollButton(false);
+    } 
+    // 2. New Message Arrived
+    else if (isNewMessage) {
+        // If user was already near bottom, auto-scroll smoothly
+        if (isNearBottom) {
+             container.scrollTo({ top: scrollHeight, behavior: 'smooth' });
+             setShowScrollButton(false);
+        } else {
+             // User is reading history, don't interrupt, just show button
+             setShowScrollButton(true);
+        }
     }
-  }, [messages.length, typingUsers]); 
+
+    lastMessageCount.current = messages.length;
+  }, [messages.length, typingUsers]); // Only trigger on count change (new messages), not just reactions
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+    // Use a slightly larger threshold for showing the button
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
     setShowScrollButton(!isNearBottom);
   };
 
@@ -172,7 +187,13 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     setInput('');
     setReplyingTo(null);
     onSendTyping(false);
-    setTimeout(() => scrollToBottom(), 50);
+    // Force immediate scroll for own message
+    setTimeout(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
+            setShowScrollButton(false);
+        }
+    }, 50);
   };
 
   const handleSendPoll = () => {
@@ -235,12 +256,12 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
 
       {/* Messages Area */}
       <div 
-        className="flex-grow overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/50 p-4 space-y-2 scroll-smooth transition-colors"
+        className="flex-grow overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/50 p-4 space-y-2 transition-colors overscroll-contain"
         ref={scrollContainerRef}
         onScroll={handleScroll}
       >
         {messages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-600 opacity-60">
+            <div className="h-full flex flex-col items-center justify-center text-zinc-500 dark:text-zinc-600 opacity-60 min-h-[300px]">
                 <div className="bg-zinc-200/50 dark:bg-zinc-800/50 p-4 rounded-full mb-3">
                    <MessageSquare size={32} />
                 </div>
@@ -263,8 +284,8 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
           return (
             <React.Fragment key={msg.id}>
               {showDateSeparator && (
-                  <div className="flex justify-center my-4">
-                      <span className="bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm border border-zinc-200 dark:border-zinc-700/50">
+                  <div className="flex justify-center my-6">
+                      <span className="bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm border border-zinc-200 dark:border-zinc-700/50 backdrop-blur-sm">
                           {formatDateLabel(msg.timestamp)}
                       </span>
                   </div>
@@ -414,7 +435,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
       {showScrollButton && (
         <button 
             onClick={scrollToBottom}
-            className="absolute bottom-24 right-6 bg-white dark:bg-zinc-800 text-blue-500 p-2 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700 transition-colors z-40"
+            className="absolute bottom-24 right-6 bg-white dark:bg-zinc-800 text-blue-500 p-2.5 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700 transition-transform active:scale-95 z-50 animate-bounce"
         >
             <ArrowDown size={24} />
         </button>
@@ -422,7 +443,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
 
       {/* Poll Creator Modal */}
       {showPollCreator && (
-        <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+        <div className="absolute inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 animate-fade-in">
              <div className="bg-white dark:bg-zinc-900 w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-zinc-200 dark:border-zinc-800">
                  <div className="flex justify-between items-center mb-4">
                      <h3 className="font-bold text-lg flex items-center gap-2 text-zinc-900 dark:text-white"><BarChart2 className="text-blue-500" /> Create Poll</h3>

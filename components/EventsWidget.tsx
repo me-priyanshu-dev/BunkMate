@@ -29,7 +29,7 @@ const EventsWidget: React.FC<Props> = ({ events, onAddEvent, dateLabel }) => {
       case 'CRITICAL': return <AlertTriangle size={20} className="text-red-500" />;
       case 'IMPORTANT': return <Star size={20} className="text-amber-500" />;
       case 'FUN': return <PartyPopper size={20} className="text-green-500" />;
-      default: return <Info size={20} className="text-blue-500" />;
+      default: return <Info size={20} className="text-primary-500" />;
     }
   };
 
@@ -38,7 +38,7 @@ const EventsWidget: React.FC<Props> = ({ events, onAddEvent, dateLabel }) => {
       case 'CRITICAL': return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300';
       case 'IMPORTANT': return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300';
       case 'FUN': return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300';
-      default: return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300';
+      default: return 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-300';
     }
   };
 
@@ -47,7 +47,7 @@ const EventsWidget: React.FC<Props> = ({ events, onAddEvent, dateLabel }) => {
       <div className="flex justify-between items-center mb-6">
         <div>
             <h3 className="font-bold text-zinc-900 dark:text-white flex items-center gap-2 text-lg uppercase tracking-wider">
-                <Calendar size={20} className="text-blue-500" />
+                <Calendar size={20} className="text-primary-500" />
                 Class Agenda
             </h3>
             <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
@@ -56,7 +56,7 @@ const EventsWidget: React.FC<Props> = ({ events, onAddEvent, dateLabel }) => {
         </div>
         <button 
             onClick={() => { setShowModal(true); SoundService.playClick(); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-500 shadow-lg shadow-primary-500/20 transition-all active:scale-95"
         >
             <Plus size={18} /> Add Event
         </button>
@@ -108,7 +108,7 @@ const EventsWidget: React.FC<Props> = ({ events, onAddEvent, dateLabel }) => {
                         value={title}
                         onChange={e => setTitle(e.target.value)}
                         autoFocus
-                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-lg text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
+                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-lg text-zinc-900 dark:text-white focus:outline-none focus:border-primary-500 transition-colors"
                     />
                 </div>
                 
@@ -134,7 +134,7 @@ const EventsWidget: React.FC<Props> = ({ events, onAddEvent, dateLabel }) => {
                 <button 
                     onClick={handleSave}
                     disabled={!title.trim()}
-                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                    className="w-full bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary-500/20 active:scale-95"
                 >
                     Add to Agenda
                 </button>

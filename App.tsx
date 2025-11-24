@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus, Poll, CalendarEvent, EventType } from './types';
 import { 
@@ -46,6 +47,8 @@ import ProfileSettings from './components/ProfileSettings';
 import Feedback from './components/Feedback';
 import WeatherWidget from './components/WeatherWidget';
 import StudySection from './components/StudySection';
+import EventsWidget from './components/EventsWidget';
+import CalendarView from './components/CalendarView';
 import { Bell, Wifi, WifiOff, LogOut, Calendar, BarChart2 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -139,8 +142,9 @@ const App: React.FC = () => {
       }
   };
 
-  // Theme Logic
+  // Theme Logic (Dark Mode + Color Theme)
   useEffect(() => {
+    // Dark Mode
     if (isDarkMode) {
         document.documentElement.classList.add('dark');
         localStorage.setItem('bunkmate_theme', 'dark');
@@ -148,7 +152,13 @@ const App: React.FC = () => {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('bunkmate_theme', 'light');
     }
-  }, [isDarkMode]);
+
+    // Color Theme
+    document.body.classList.remove('theme-blue', 'theme-purple', 'theme-emerald');
+    if (currentUser?.theme) {
+        document.body.classList.add(`theme-${currentUser.theme}`);
+    }
+  }, [isDarkMode, currentUser?.theme]);
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
@@ -382,8 +392,6 @@ const App: React.FC = () => {
     const updatedMsgs = addReactionToMessage(messageId, emoji, currentUser.id);
     setMessages(updatedMsgs);
     // Ignore my own echo is handled in handleMQTTMessage by userId check, but for local update we need to render it
-    // The previous implementation had a bug where reaction was toggled off by echo. 
-    // We already fixed it in handleMQTTMessage.
     publishReaction(messageId, emoji, currentUser.id);
   };
 
@@ -506,7 +514,7 @@ const App: React.FC = () => {
   const renderDashboardWidgets = () => (
     <>
       <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-2xl mb-6 border border-zinc-200 dark:border-zinc-800 flex relative transition-colors duration-300 animate-slide-up">
-         <div className="absolute top-1.5 bottom-1.5 rounded-xl bg-blue-600 transition-all duration-300 ease-out" 
+         <div className="absolute top-1.5 bottom-1.5 rounded-xl bg-primary-600 transition-all duration-300 ease-out" 
               style={{ 
                   width: 'calc(33.33% - 4px)', 
                   left: `calc(${dateOffset * 33.33}% + 2px)` 
@@ -523,7 +531,7 @@ const App: React.FC = () => {
                     className={`flex-1 relative z-10 py-2.5 rounded-xl text-sm font-medium transition-colors flex flex-col items-center leading-none gap-1 ${isSelected ? 'text-white' : 'text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
                  >
                     <span>{label}</span>
-                    <span className={`text-[10px] ${isSelected ? 'text-blue-100' : 'text-zinc-400 dark:text-zinc-600'}`}>{dayNum}</span>
+                    <span className={`text-[10px] ${isSelected ? 'text-primary-100' : 'text-zinc-400 dark:text-zinc-600'}`}>{dayNum}</span>
                  </button>
              );
          })}
@@ -558,7 +566,7 @@ const App: React.FC = () => {
   const showMobileHeader = currentView === ViewState.DASHBOARD || currentView === ViewState.PROFILE;
 
   return (
-    <div className="h-[100dvh] w-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-blue-600/30 overflow-hidden flex flex-col transition-colors duration-300">
+    <div className="h-[100dvh] w-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-primary-600/30 overflow-hidden flex flex-col transition-colors duration-300">
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3 pointer-events-none w-full max-w-md px-4">
       </div>
 
@@ -583,7 +591,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex gap-2">
               {typeof Notification !== 'undefined' && permissionStatus === 'default' && (
-                  <button onClick={requestNotificationPermission} className="p-2.5 bg-blue-600/20 text-blue-400 rounded-full hover:bg-blue-600/30">
+                  <button onClick={requestNotificationPermission} className="p-2.5 bg-primary-600/20 text-primary-400 rounded-full hover:bg-primary-600/30">
                       <Bell size={18} />
                   </button>
               )}
@@ -650,7 +658,7 @@ const App: React.FC = () => {
                     {currentView === ViewState.DASHBOARD ? 'Dashboard' : 
                      currentView === ViewState.STUDY ? 'Study Hub' :
                      currentView === ViewState.STATS ? 'Statistics' :
-                     currentView === ViewState.DISCUSS ? 'Squad Chat' : 'BunkMate'}
+                     currentView === ViewState.DISCUSS ? 'Squad Chat' : 'ClassMate'}
                   </h1>
                   <div className="flex items-center gap-3 text-zinc-500 dark:text-zinc-400">
                     <span className="text-lg">{viewDateDisplay}</span>
@@ -662,7 +670,7 @@ const App: React.FC = () => {
               </div>
               <div className="flex items-center gap-4">
                   {typeof Notification !== 'undefined' && permissionStatus === 'default' && (
-                      <button onClick={requestNotificationPermission} className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600/30 font-medium">
+                      <button onClick={requestNotificationPermission} className="flex items-center gap-2 px-4 py-2 bg-primary-600/20 text-primary-600 dark:text-primary-400 rounded-xl hover:bg-primary-600/30 font-medium">
                           <Bell size={18} /> Enable Notifications
                       </button>
                   )}
@@ -688,7 +696,7 @@ const App: React.FC = () => {
                                     <button 
                                         key={offset}
                                         onClick={() => { setDateOffset(offset); SoundService.playClick(); }}
-                                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${isSelected ? 'bg-blue-600 text-white' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${isSelected ? 'bg-primary-600 text-white' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                                     >
                                         {label} <span className="text-xs opacity-60 ml-1">{dayNum}</span>
                                     </button>

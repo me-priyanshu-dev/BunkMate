@@ -81,7 +81,8 @@ export const registerUser = (name: string, classCode: string, targetDays: number
     isCurrentUser: true,
     lastSeen: Date.now(),
     classCode: code,
-    targetDaysPerWeek: targetDays
+    targetDaysPerWeek: targetDays,
+    theme: 'blue'
   };
 
   const updatedUsers = [...users, newUser];
@@ -148,7 +149,8 @@ export const upsertRemoteUser = (remoteUser: Partial<User>) => {
       isCurrentUser: isMe,
       targetDaysPerWeek: remoteUser.targetDaysPerWeek || existingTarget,
       examName: remoteUser.examName || users[existingIndex].examName,
-      examDate: remoteUser.examDate || users[existingIndex].examDate
+      examDate: remoteUser.examDate || users[existingIndex].examDate,
+      theme: remoteUser.theme || users[existingIndex].theme
     };
   } else {
     // Add new remote user
@@ -161,7 +163,8 @@ export const upsertRemoteUser = (remoteUser: Partial<User>) => {
       lastSeen: remoteUser.lastSeen,
       targetDaysPerWeek: remoteUser.targetDaysPerWeek || 4,
       examName: remoteUser.examName,
-      examDate: remoteUser.examDate
+      examDate: remoteUser.examDate,
+      theme: remoteUser.theme
     });
   }
   

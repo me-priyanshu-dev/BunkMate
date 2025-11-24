@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, StatusType } from '../types';
 import { Check, X, CircleDashed, Lightbulb, AlertTriangle, PartyPopper, PenLine } from 'lucide-react';
@@ -36,7 +35,7 @@ const StatusCard: React.FC<Props> = ({ user, status, onUpdateStatus, recommendat
   const Icon = style.icon;
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-8 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6 transition-colors duration-300">
+    <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-primary-100 dark:border-zinc-800 shadow-sm space-y-6 transition-colors duration-300">
       
       {recommendation ? (
         <div className={`p-5 rounded-2xl border flex gap-4 ${style.bg} ${style.border} animate-fade-in relative overflow-hidden transition-colors`}>
@@ -63,7 +62,7 @@ const StatusCard: React.FC<Props> = ({ user, status, onUpdateStatus, recommendat
       )}
       
       {/* Note Input */}
-      <div className="bg-zinc-50 dark:bg-zinc-950/50 rounded-xl px-4 py-3 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+      <div className="bg-zinc-50 dark:bg-zinc-950/50 rounded-xl px-4 py-3 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3 focus-within:ring-2 focus-within:ring-primary-500/20 transition-all">
          <PenLine size={18} className="text-zinc-400" />
          <input 
             type="text" 

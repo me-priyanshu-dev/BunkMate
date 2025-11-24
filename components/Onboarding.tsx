@@ -54,7 +54,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
         <GraduationCap size={64} className="text-blue-600" />
       </div>
       
-      <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">BunkMate</h1>
+      <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">ClassMate</h1>
       <p className="text-zinc-400 mb-10 max-w-sm text-base md:text-lg">
         The simplest way to coordinate attendance with your class squad.
       </p>

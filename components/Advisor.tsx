@@ -34,8 +34,8 @@ const Advisor: React.FC<Props> = ({ users, todayStatus, myStats, userGoal, dateL
         {/* Header */}
         <div className="p-6 md:p-8 pb-4 shrink-0">
              <div className="flex items-center gap-4">
-                <div className="bg-violet-600/20 p-3 rounded-xl shrink-0 animate-pop-in">
-                    <Bot className="text-violet-400" size={32} />
+                <div className="bg-primary-600/20 p-3 rounded-xl shrink-0 animate-pop-in">
+                    <Bot className="text-primary-400" size={32} />
                 </div>
                 <div>
                     <h2 className="text-2xl font-bold text-white">AI Advisor</h2>
@@ -56,14 +56,14 @@ const Advisor: React.FC<Props> = ({ users, todayStatus, myStats, userGoal, dateL
 
           {loading && (
              <div className="flex flex-col items-center justify-center h-full min-h-[200px] space-y-4 animate-fade-in">
-                <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-base text-violet-400 font-medium animate-pulse">Consulting the algorithm...</p>
+                <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-base text-primary-400 font-medium animate-pulse">Consulting the algorithm...</p>
              </div>
           )}
 
           {advice && !loading && (
             <div className="bg-zinc-800/80 rounded-2xl p-5 md:p-6 text-zinc-100 border border-zinc-700/50 leading-relaxed text-base md:text-lg shadow-lg animate-slide-up mb-4">
-                <div className="prose prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-strong:text-violet-200">
+                <div className="prose prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-strong:text-primary-200">
                     <ReactMarkdown>{advice}</ReactMarkdown>
                 </div>
             </div>
@@ -79,12 +79,12 @@ const Advisor: React.FC<Props> = ({ users, todayStatus, myStats, userGoal, dateL
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
               placeholder={`Ask about ${dateLabel.toLowerCase()}...`}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-5 pr-14 py-3.5 md:py-4 text-base text-white focus:outline-none focus:border-violet-500/50 focus:ring-0 placeholder-zinc-600 transition-all shadow-inner"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-5 pr-14 py-3.5 md:py-4 text-base text-white focus:outline-none focus:border-primary-500/50 focus:ring-0 placeholder-zinc-600 transition-all shadow-inner"
             />
             <button 
               onClick={handleAsk}
               disabled={loading}
-              className="absolute right-2 top-2 bottom-2 bg-violet-600 hover:bg-violet-500 text-white w-10 md:w-12 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:grayscale hover:scale-105 active:scale-95"
+              className="absolute right-2 top-2 bottom-2 bg-primary-600 hover:bg-primary-500 text-white w-10 md:w-12 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:grayscale hover:scale-105 active:scale-95"
             >
               <Send size={18} />
             </button>

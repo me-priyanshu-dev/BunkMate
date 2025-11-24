@@ -1,5 +1,5 @@
 {
-  "name": "BunkMate - Connected",
-  "description": "Cross-device attendance planner for squads.",
+  "name": "ClassMate",
+  "description": "Cross-device class companion for squads.",
   "requestFramePermissions": []
 }

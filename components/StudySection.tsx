@@ -1,98 +1,153 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { BookOpen, Layers, GitFork, Sparkles, RefreshCw, ChevronLeft, ChevronRight, RotateCw, Volume2, CheckCircle2, Check, X, Eye, HelpCircle, Move, Search, Plus, Minus, Lightbulb, Trophy } from 'lucide-react';
+import { BookOpen, Layers, GitFork, Sparkles, RefreshCw, Volume2, CheckCircle2, Check, X, HelpCircle, Search, Plus, Minus, Lightbulb, Maximize2, Minimize2, MousePointer2, Download, Eraser } from 'lucide-react';
 import { generateStudyMaterial } from '../services/geminiService';
-import { Flashcard, MindMapNode, StudyNote, StudyQuestion } from '../types';
+import { MindMapNode, StudyNote, StudyQuestion } from '../types';
 import { SoundService } from '../services/soundService';
 
-type Tab = 'NOTES' | 'FLASHCARDS' | 'MINDMAP';
+type Tab = 'NOTES' | 'MINDMAP';
 
 const NOTE_COLORS = [
-  'bg-[#fef9c3] border-[#fde047] shadow-yellow-200/50', // Yellow
-  'bg-[#dbeafe] border-[#93c5fd] shadow-blue-200/50',   // Blue
-  'bg-[#dcfce7] border-[#86efac] shadow-green-200/50',  // Green
-  'bg-[#fce7f3] border-[#f9a8d4] shadow-pink-200/50',   // Pink
-  'bg-[#f3e8ff] border-[#d8b4fe] shadow-purple-200/50', // Purple
-  'bg-[#ffedd5] border-[#fdba74] shadow-orange-200/50', // Orange
-];
-
-const HIGHLIGHT_COLORS = [
-    'bg-yellow-300/60',
-    'bg-green-300/60',
-    'bg-blue-300/60',
-    'bg-pink-300/60'
+  'bg-[#fffbeb] border-amber-200 shadow-amber-100', // Warm Yellow
+  'bg-[#eff6ff] border-blue-200 shadow-blue-100',   // Cool Blue
+  'bg-[#f0fdf4] border-emerald-200 shadow-emerald-100', // Fresh Green
+  'bg-[#fff1f2] border-rose-200 shadow-rose-100',   // Soft Pink
+  'bg-[#f5f3ff] border-violet-200 shadow-violet-100', // Royal Purple
 ];
 
 const TAPE_COLORS = [
-  'bg-red-400/30',
-  'bg-blue-400/30',
-  'bg-green-400/30',
-  'bg-yellow-400/30',
+    'bg-rose-400/40',
+    'bg-sky-400/40', 
+    'bg-emerald-400/40',
+    'bg-violet-400/40',
+    'bg-amber-400/40'
 ];
 
 const StudySection: React.FC = () => {
   const [topic, setTopic] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('NOTES');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Data States
   const [notes, setNotes] = useState<StudyNote | null>(null);
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [mindMap, setMindMap] = useState<MindMapNode | null>(null);
-  
-  // Flashcard UI State
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [showHint, setShowHint] = useState(false);
-  const [masteredCards, setMasteredCards] = useState<number[]>([]);
   
   // Mind Map UI State
   const [mapScale, setMapScale] = useState(1);
   const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
   const [isDraggingMap, setIsDraggingMap] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const mapRef = useRef<HTMLDivElement>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
 
   // Notes UI State
   const [learnedSections, setLearnedSections] = useState<{[key: number]: boolean}>({});
   const [questionStates, setQuestionStates] = useState<{[key: string]: any}>({});
 
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+        containerRef.current?.requestFullscreen().catch(err => {
+            console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+      const handleFsChange = () => {
+          setIsFullScreen(!!document.fullscreenElement);
+      };
+      document.addEventListener('fullscreenchange', handleFsChange);
+      return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
   const handleGenerate = async () => {
     if (!topic.trim() || loading) return;
     setLoading(true);
+    setError('');
     SoundService.playClick();
     
     setLearnedSections({});
     setQuestionStates({});
-    setMasteredCards([]);
     setExpandedNodes(new Set(['root']));
+    setMapScale(1);
+    setMapPosition({ x: 0, y: 0 });
     
     try {
       const result = await generateStudyMaterial(topic, activeTab);
+      if (!result) throw new Error(`Could not generate ${activeTab.toLowerCase()}. Please try again.`);
       
       if (activeTab === 'NOTES') setNotes(result as StudyNote);
-      else if (activeTab === 'FLASHCARDS') {
-        setFlashcards(result as Flashcard[]);
-        setCurrentCardIndex(0);
-        setIsFlipped(false);
-        setShowHint(false);
-      }
       else if (activeTab === 'MINDMAP') setMindMap(result as MindMapNode);
       
       SoundService.playReceive();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.message || 'AI Brain Freeze! Please try a different topic or try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDownloadNotes = () => {
+    if (!notes) return;
+    SoundService.playClick();
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${notes.topic} - ClassMate Notes</title>
+        <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+        <style>
+          body { font-family: 'Kalam', cursive; padding: 40px; background: #fdf6e3; color: #1f2937; }
+          .container { max-width: 800px; margin: 0 auto; }
+          .summary { background-color: #fef3c7; padding: 20px; border-left: 5px solid #d97706; margin-bottom: 30px; border-radius: 8px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); transform: rotate(1deg); }
+          .section { background: white; padding: 25px; margin-bottom: 25px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; }
+          .tape { position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(1deg); width: 100px; height: 30px; background-color: rgba(251, 113, 133, 0.3); opacity: 0.8; }
+          h1 { text-align: center; font-size: 3em; margin-bottom: 40px; }
+          h2 { margin-top: 0; }
+          strong { font-weight: 800; }
+          .highlight { background-color: #fef08a; padding: 2px 5px; border-radius: 2px; }
+          .footer { text-align: center; margin-top: 50px; color: #9ca3af; font-size: 0.8em; font-family: sans-serif; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>${notes.topic}</h1>
+          <div class="summary">
+            <h3>💡 Quick Summary</h3>
+            <p>${notes.summary}</p>
+          </div>
+          ${notes.sections.map((s, i) => `
+            <div class="section" style="transform: rotate(${i % 2 === 0 ? '-1deg' : '1deg'})">
+              <div class="tape" style="background-color: ${['rgba(251, 113, 133, 0.3)', 'rgba(56, 189, 248, 0.3)', 'rgba(52, 211, 153, 0.3)'][i % 3]}"></div>
+              <h2>${s.title}</h2>
+              <p>${s.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/==(.*?)==/g, '<span class="highlight">$1</span>')}</p>
+            </div>
+          `).join('')}
+          <div class="footer">Generated by ClassMate AI</div>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${notes.topic.replace(/\s+/g, '_')}_notes.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // --- Helpers ---
   const toggleLearned = (index: number) => {
-      setLearnedSections(prev => ({
-          ...prev,
-          [index]: !prev[index]
-      }));
+      setLearnedSections(prev => ({ ...prev, [index]: !prev[index] }));
       SoundService.playClick();
   };
 
@@ -100,48 +155,30 @@ const StudySection: React.FC = () => {
       window.speechSynthesis.cancel();
       const cleanText = text.replace(/(\*\*|==)/g, '');
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 1;
-      utterance.pitch = 1.1; 
       window.speechSynthesis.speak(utterance);
   };
 
-  // --- Flashcard Logic ---
-  const handleCardResult = (success: boolean) => {
-      if (success) {
-          if (!masteredCards.includes(currentCardIndex)) {
-            setMasteredCards([...masteredCards, currentCardIndex]);
-          }
-      } else {
-          setMasteredCards(masteredCards.filter(id => id !== currentCardIndex));
-      }
-      
-      SoundService.playClick();
-      if (currentCardIndex < flashcards.length - 1) {
-          setTimeout(() => {
-            setCurrentCardIndex(prev => prev + 1);
-            setIsFlipped(false);
-            setShowHint(false);
-          }, 300);
-      }
+  const renderHandwrittenContent = (text: string) => {
+      const parts = text.split(/(\*\*.*?\*\*|==.*?==)/g);
+      return parts.map((part, i) => {
+          if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-extrabold">{part.slice(2, -2)}</strong>;
+          if (part.startsWith('==') && part.endsWith('==')) return <span key={i} className="bg-primary-200/50 px-1 rounded-sm border-b-2 border-primary-300/50">{part.slice(2, -2)}</span>;
+          return <span key={i}>{part}</span>;
+      });
   };
 
-  // --- Mind Map Logic ---
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDraggingMap(true);
-    setDragStart({ x: e.clientX - mapPosition.x, y: e.clientY - mapPosition.y });
+  // --- Mind Map (Infinite Canvas) ---
+  const handleStart = (clientX: number, clientY: number) => {
+      setIsDraggingMap(true);
+      setDragStart({ x: clientX - mapPosition.x, y: clientY - mapPosition.y });
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDraggingMap) return;
-    setMapPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-    });
+  const handleMove = (clientX: number, clientY: number) => {
+      if (!isDraggingMap) return;
+      setMapPosition({ x: clientX - dragStart.x, y: clientY - dragStart.y });
   };
 
-  const handleMouseUp = () => setIsDraggingMap(false);
-
-  const toggleNodeExpand = (id: string, e: React.MouseEvent) => {
+  const toggleNode = (id: string, e: React.MouseEvent | React.TouchEvent) => {
       e.stopPropagation();
       const newSet = new Set(expandedNodes);
       if (newSet.has(id)) newSet.delete(id);
@@ -150,435 +187,300 @@ const StudySection: React.FC = () => {
       SoundService.playClick();
   };
 
-  // --- Handwitten Text Renderer with Highlighters ---
-  const renderHandwrittenContent = (text: string, sectionIndex: number) => {
-      const parts = text.split(/(\*\*.*?\*\*|==.*?==)/g);
-      return parts.map((part, i) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={i} className="font-extrabold text-black/90">{part.slice(2, -2)}</strong>;
-          }
-          if (part.startsWith('==') && part.endsWith('==')) {
-              const hlColor = HIGHLIGHT_COLORS[sectionIndex % HIGHLIGHT_COLORS.length];
-              return (
-                <span key={i} className={`relative inline-block px-1 mx-0.5 rounded-sm transform -rotate-1`}>
-                    <span className={`absolute inset-0 ${hlColor} rounded-sm -z-10 transform skew-x-3`}></span>
-                    <span className="relative z-0">{part.slice(2, -2)}</span>
-                </span>
-              );
-          }
-          return <span key={i}>{part}</span>;
-      });
-  };
-
-  const handleAnswerQuestion = (key: string, value: any) => {
-      setQuestionStates(prev => ({ ...prev, [key]: value }));
-      SoundService.playClick();
-  };
-
-  const renderQuestion = (q: StudyQuestion, sectionIndex: number) => {
-      const key = `${sectionIndex}-${q.id}`;
-      const state = questionStates[key]; 
+  const renderMindMapNode = (node: MindMapNode, depth = 0): React.ReactElement => {
+      const isExpanded = expandedNodes.has(node.id || 'root');
+      const hasChildren = node.children && node.children.length > 0;
       
-      if (q.type === 'FILL_BLANK') {
-          const isRevealed = !!state;
-          return (
-              <div className="mt-4 p-3 bg-white/40 rounded-lg border border-black/5 font-hand text-lg">
-                  <span className="font-bold mr-2 text-zinc-500">Q:</span>
-                  {q.question.replace('____', '')}
-                  <button 
-                    onClick={() => handleAnswerQuestion(key, true)}
-                    className={`inline-block min-w-[80px] border-b-2 border-black/30 px-2 mx-1 text-center transition-colors ${isRevealed ? 'text-blue-600 font-bold border-blue-500' : 'text-transparent hover:bg-black/5'}`}
-                  >
-                      {isRevealed ? q.answer : '______'}
-                  </button>
-                  {q.question.split('____')[1]}
+      return (
+          <div key={node.id} className="flex items-center">
+              <div 
+                  onClick={(e) => hasChildren && toggleNode(node.id || 'root', e)}
+                  className={`
+                      relative flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all duration-300 cursor-pointer select-none shadow-2xl backdrop-blur-md
+                      ${depth === 0 ? 'bg-primary-600 border-primary-400 text-white min-w-[200px] shadow-primary-500/50' : 
+                        depth === 1 ? 'bg-zinc-800/80 border-primary-500/50 text-primary-100 min-w-[150px]' : 
+                        'bg-zinc-900/80 border-zinc-700 text-zinc-300 min-w-[130px]'}
+                      hover:scale-105 hover:shadow-primary-500/30 z-10
+                  `}
+              >
+                  {depth === 0 && (
+                      <div className="absolute -top-8 w-16 h-16 rounded-full border-4 border-primary-400 overflow-hidden bg-black shadow-lg">
+                           <img 
+                                src={`https://image.pollinations.ai/prompt/${encodeURIComponent(node.label + ' icon minimal vector flat')}?width=100&height=100&nologo=true`} 
+                                className="w-full h-full object-cover"
+                           />
+                      </div>
+                  )}
+                  <span className="text-3xl mb-1 filter drop-shadow-md">{node.emoji || '🔹'}</span>
+                  <span className={`font-bold text-center leading-tight ${depth === 0 ? 'mt-6 text-lg' : 'text-sm'}`}>{node.label}</span>
+                  
+                  {hasChildren && (
+                      <div className={`absolute -right-3 w-6 h-6 rounded-full flex items-center justify-center border transition-colors shadow-sm ${isExpanded ? 'bg-zinc-700 border-zinc-500 text-zinc-300' : 'bg-white border-primary-300 text-primary-600'}`}>
+                          {isExpanded ? <Minus size={12}/> : <Plus size={12}/>}
+                      </div>
+                  )}
               </div>
-          );
-      }
-      if (q.type === 'MCQ') {
-          return (
-              <div className="mt-4 p-3 bg-white/40 rounded-lg border border-black/5 font-hand">
-                  <p className="text-lg font-medium mb-2"><span className="font-bold text-zinc-500 mr-2">Q:</span>{q.question}</p>
-                  <div className="grid grid-cols-1 gap-2">
-                      {q.options?.map((opt, i) => {
-                          const isSelected = state === opt;
-                          const isCorrect = opt === q.answer;
-                          let btnClass = "border-black/20 bg-white/50 hover:bg-white/80";
-                          if (state) {
-                              if (opt === q.answer) btnClass = "border-green-500 bg-green-100 text-green-800";
-                              else if (isSelected && !isCorrect) btnClass = "border-red-500 bg-red-100 text-red-800";
-                              else btnClass = "opacity-50 border-transparent";
-                          }
-                          return (
-                              <button 
-                                key={i}
-                                disabled={!!state}
-                                onClick={() => handleAnswerQuestion(key, opt)}
-                                className={`text-left px-3 py-1.5 rounded-md border text-base transition-all ${btnClass}`}
-                              >
-                                  <span className="mr-2 font-bold">{String.fromCharCode(65 + i)}.</span> {opt}
-                              </button>
-                          );
-                      })}
+
+              {hasChildren && isExpanded && (
+                  <div className="flex flex-col gap-6 ml-12 relative">
+                      {/* Connector Line */}
+                      <svg className="absolute top-0 bottom-0 -left-12 w-12 h-full pointer-events-none overflow-visible z-0">
+                          {node.children!.map((child, i, arr) => {
+                              // Simplified connector visualization for React flow (horizontal tree)
+                              return null;
+                          })}
+                          <path d={`M 0,${50}% C 25,${50}% 25,${50}% 48,${50}%`} stroke="url(#gradient)" strokeWidth="2" fill="none" />
+                      </svg>
+                      
+                      {/* Simple CSS Lines fallback */}
+                      <div className="absolute top-1/2 -left-12 w-12 h-0.5 bg-gradient-to-r from-primary-600 to-transparent -translate-y-1/2 opacity-50"></div>
+                      <div className="absolute top-4 bottom-4 -left-12 w-0.5 bg-gradient-to-b from-primary-600/0 via-primary-500/30 to-primary-600/0 my-8"></div>
+                      
+                      {node.children!.map((child) => (
+                          <div key={child.id} className="relative flex items-center">
+                              <div className="w-12 h-0.5 bg-gradient-to-r from-primary-500/30 to-primary-500/10 mr-0"></div>
+                              {renderMindMapNode(child, depth + 1)}
+                          </div>
+                      ))}
                   </div>
-              </div>
-          );
-      }
-      if (q.type === 'SUBJECTIVE') {
-          const isRevealed = !!state;
-          return (
-              <div className="mt-4 p-3 bg-white/40 rounded-lg border border-black/5 font-hand">
-                   <p className="text-lg font-medium mb-2"><span className="font-bold text-zinc-500 mr-2">Q:</span>{q.question}</p>
-                   {isRevealed ? (
-                       <div className="bg-green-50/50 p-2 rounded border border-green-200 text-green-900 text-base animate-fade-in">
-                           <p className="font-bold mb-1">Answer:</p>
-                           {q.answer}
-                           {q.explanation && <p className="text-sm mt-1 opacity-80 italic">💡 {q.explanation}</p>}
-                       </div>
-                   ) : (
-                       <button onClick={() => handleAnswerQuestion(key, true)} className="text-sm text-blue-600 underline decoration-dotted flex items-center gap-1 hover:text-blue-700">
-                           <Eye size={14} /> Reveal Answer
-                       </button>
-                   )}
-              </div>
-          );
-      }
-      return null;
-  };
-
-  const renderMindMapNode = (node: MindMapNode, depth = 0) => {
-    const isExpanded = expandedNodes.has(node.id || 'root');
-    const hasChildren = node.children && node.children.length > 0;
-    
-    // Depth-based Styling
-    let containerClass = "p-4 rounded-2xl border-2 shadow-lg transition-all duration-300 relative group cursor-pointer hover:scale-105";
-    let textClass = "font-bold text-center";
-    
-    if (depth === 0) {
-        containerClass += " bg-zinc-900 text-white border-blue-500 shadow-blue-500/20 min-w-[200px]";
-        textClass += " text-xl";
-    } else if (depth === 1) {
-        containerClass += " bg-white dark:bg-zinc-800 border-purple-400 min-w-[150px]";
-        textClass += " text-zinc-800 dark:text-zinc-100 text-lg";
-    } else {
-        containerClass += " bg-zinc-50 dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 min-w-[120px]";
-        textClass += " text-zinc-600 dark:text-zinc-300 text-sm";
-    }
-
-    return (
-        <div key={node.id} className="flex flex-col items-center mx-4">
-             {/* Node Content */}
-             <div onClick={(e) => hasChildren && toggleNodeExpand(node.id || 'root', e)} className={containerClass}>
-                 {/* Root Image */}
-                 {depth === 0 && (
-                     <div className="w-24 h-24 mx-auto mb-3 rounded-full bg-black overflow-hidden border-2 border-white/20">
-                         <img 
-                            src={`https://image.pollinations.ai/prompt/${encodeURIComponent(node.label + ' icon 3d render cute minimalist')}?width=100&height=100&nologo=true`} 
-                            className="w-full h-full object-cover" 
-                            alt="icon" 
-                         />
-                     </div>
-                 )}
-                 <div className="text-3xl mb-1 text-center">{node.emoji || '✨'}</div>
-                 <div className={textClass}>{node.label}</div>
-                 
-                 {hasChildren && (
-                     <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-zinc-200 dark:bg-zinc-700 rounded-full p-1 border border-white dark:border-zinc-900">
-                         {isExpanded ? <Minus size={12}/> : <Plus size={12}/>}
-                     </div>
-                 )}
-             </div>
-
-             {/* Branches (Curved Lines Logic replaced with clean CSS hierarchy for robustness) */}
-             {hasChildren && isExpanded && (
-                 <div className="flex flex-col items-center animate-slide-up origin-top">
-                     <div className="w-px h-8 bg-zinc-300 dark:bg-zinc-600"></div> {/* Vertical Stem */}
-                     <div className="flex relative">
-                         {/* Horizontal connector bar */}
-                         {node.children!.length > 1 && (
-                             <div className="absolute top-0 left-0 right-0 h-px bg-zinc-300 dark:bg-zinc-600" style={{ left: '50%', right: '50%', width: `calc(100% - ${100/node.children!.length}%)`, transform: 'translateX(-50%)' }}></div>
-                         )}
-                         
-                         {node.children!.map((child, i) => (
-                             <div key={child.id || i} className="flex flex-col items-center relative px-2">
-                                 {/* Horizontal arms for multiple children */}
-                                 {node.children!.length > 1 && (
-                                     <div className={`absolute top-0 h-px bg-zinc-300 dark:bg-zinc-600 ${i === 0 ? 'right-1/2 w-1/2' : i === node.children!.length - 1 ? 'left-1/2 w-1/2' : 'w-full'}`}></div>
-                                 )}
-                                 <div className="w-px h-8 bg-zinc-300 dark:bg-zinc-600"></div>
-                                 {renderMindMapNode(child, depth + 1)}
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-             )}
-        </div>
-    );
+              )}
+          </div>
+      );
   };
 
   return (
-    <div className="h-full flex flex-col bg-zinc-50 dark:bg-zinc-950 md:bg-transparent">
-        {/* Header */}
-        <div className="p-4 md:p-0 mb-4 shrink-0">
-             <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-violet-100 dark:bg-violet-900/30 p-2.5 rounded-xl text-violet-600 dark:text-violet-400">
-                        <BookOpen size={24} />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-zinc-900 dark:text-white">AI Study Hub</h2>
-                        <p className="text-zinc-500 text-sm">Generate notes, cards & maps instantly.</p>
-                    </div>
-                </div>
-
-                <div className="flex gap-2">
-                    <div className="relative flex-1">
+    <div 
+        ref={containerRef}
+        className={`h-full flex flex-col bg-zinc-50 dark:bg-zinc-950 transition-all duration-300 ${isFullScreen ? 'overflow-auto fixed inset-0 z-[9999] bg-white dark:bg-black' : ''}`}
+    >
+        {/* Header - Strongly Themed */}
+        <div className={`p-4 ${isFullScreen ? 'fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-black/90 backdrop-blur' : ''}`}>
+             <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-primary-200 dark:border-primary-900/50 shadow-lg shadow-primary-500/5 transition-colors duration-300">
+                <div className="flex flex-col md:flex-row gap-4 items-center">
+                    <div className="flex-1 w-full relative">
+                        <Search className="absolute left-3 top-3.5 text-primary-400" size={20} />
                         <input 
-                            type="text" 
+                            type="text"
                             value={topic}
-                            onChange={e => setTopic(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleGenerate()}
-                            placeholder="Enter a topic (e.g. Thermodynamics)..."
-                            className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-4 pr-12 py-3 outline-none focus:border-violet-500 transition-colors text-zinc-900 dark:text-white"
+                            onChange={(e) => setTopic(e.target.value)}
+                            placeholder="What do you want to master? (e.g. Thermodynamics)"
+                            className="w-full pl-10 pr-4 h-12 bg-primary-50/50 dark:bg-primary-950/30 rounded-xl focus:ring-2 focus:ring-primary-500 dark:text-primary-50 border border-primary-200 dark:border-primary-800 focus:border-primary-300 placeholder-primary-400 dark:placeholder-primary-700/50 text-primary-900 transition-all"
+                            onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
                         />
-                        <button 
-                            onClick={handleGenerate}
-                            disabled={loading || !topic.trim()}
-                            className="absolute right-2 top-2 p-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors"
-                        >
-                            {loading ? <RefreshCw className="animate-spin" size={18} /> : <Sparkles size={18} />}
-                        </button>
                     </div>
-                </div>
+                    
+                    <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
+                        {(['NOTES', 'MINDMAP'] as Tab[]).map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-5 h-12 rounded-xl text-sm font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${
+                                    activeTab === tab 
+                                    ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30 border-primary-500' 
+                                    : 'bg-white dark:bg-zinc-800 text-zinc-500 hover:bg-primary-50 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700'
+                                }`}
+                            >
+                                {tab === 'NOTES' ? <BookOpen size={16}/> : <GitFork size={16}/>}
+                                {tab === 'NOTES' ? 'Notes' : 'Map'}
+                            </button>
+                        ))}
+                    </div>
 
-                <div className="flex gap-2 mt-4 overflow-x-auto pb-1 no-scrollbar">
-                    {(['NOTES', 'FLASHCARDS', 'MINDMAP'] as Tab[]).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => { setActiveTab(tab); SoundService.playClick(); }}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
-                                activeTab === tab 
-                                ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-lg' 
-                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                            }`}
-                        >
-                            {tab === 'NOTES' && <BookOpen size={16} />}
-                            {tab === 'FLASHCARDS' && <Layers size={16} />}
-                            {tab === 'MINDMAP' && <GitFork size={16} />}
-                            {tab}
-                        </button>
-                    ))}
+                    <button 
+                        onClick={handleGenerate}
+                        disabled={loading || !topic.trim()}
+                        className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white px-6 h-12 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 whitespace-nowrap shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                    >
+                        {loading ? <RefreshCw className="animate-spin" size={18}/> : <Sparkles size={18}/>}
+                        {loading ? 'Thinking...' : 'Generate'}
+                    </button>
                 </div>
              </div>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-0 pb-20 md:pb-0 h-full">
-            
-            {/* NOTES VIEW */}
-            {activeTab === 'NOTES' && (
-                <div className="animate-fade-in relative min-h-[400px]">
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center h-40 opacity-50 font-hand text-xl">
-                            <RefreshCw className="animate-spin mb-2" />
-                            <span>Scribbling notes...</span>
-                        </div>
-                    ) : notes ? (
-                        <div className="space-y-8 pb-10">
-                            {/* Sticky Summary */}
-                            <div className="bg-yellow-200 text-zinc-900 p-6 rounded-sm shadow-xl rotate-1 max-w-sm mx-auto relative transform transition-transform hover:rotate-0 border-b-4 border-r-4 border-black/10">
-                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-32 h-8 bg-yellow-100/50 rotate-[-2deg] backdrop-blur-sm shadow-sm"></div>
-                                <h3 className="font-hand font-bold text-2xl mb-2 text-center underline decoration-wavy decoration-yellow-600/30">Quick Summary</h3>
-                                <p className="font-hand text-lg leading-relaxed text-center">{notes.summary}</p>
-                            </div>
+        {/* Main Content Area */}
+        <div className="flex-grow overflow-hidden relative w-full h-full">
+            {/* Full Screen Toggle */}
+            <div className="absolute top-4 right-4 z-40 flex gap-2">
+                {activeTab === 'NOTES' && notes && (
+                    <button 
+                        onClick={handleDownloadNotes}
+                        className="p-2.5 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-xl border border-primary-100 shadow-sm text-zinc-500 hover:text-primary-600 hover:scale-105 transition-all"
+                        title="Download Notes"
+                    >
+                        <Download size={20}/>
+                    </button>
+                )}
+                <button 
+                    onClick={toggleFullScreen}
+                    className="p-2.5 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-xl border border-primary-100 shadow-sm text-zinc-500 hover:text-primary-600 hover:scale-105 transition-all"
+                >
+                    {isFullScreen ? <Minimize2 size={20}/> : <Maximize2 size={20}/>}
+                </button>
+            </div>
 
-                            {/* Notes Grid */}
-                            <div className="grid grid-cols-1 gap-8">
-                                {notes.sections.map((section, index) => {
-                                    const isLearned = learnedSections[index];
-                                    const rotation = index % 2 === 0 ? '-1deg' : '1deg';
-                                    const colorClass = NOTE_COLORS[index % NOTE_COLORS.length];
-                                    const tapeColor = TAPE_COLORS[index % TAPE_COLORS.length];
-                                    
-                                    return (
-                                        <div 
-                                            key={index}
-                                            className={`${colorClass} p-6 rounded-sm border-2 shadow-lg relative transition-all hover:scale-[1.01]`}
-                                            style={{ transform: `rotate(${rotation})` }}
-                                        >
-                                            <div className={`absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 ${tapeColor} rotate-[-2deg] backdrop-blur-[1px] opacity-80 shadow-sm`}></div>
-                                            <div className="flex justify-between items-start gap-4 mb-4 mt-2">
-                                                <h4 className={`font-hand font-bold text-3xl text-zinc-900 ${isLearned ? 'line-through decoration-4 decoration-black/20 opacity-50' : ''}`}>{section.title}</h4>
-                                                <button onClick={() => playText(section.content)} className="p-2 bg-black/5 rounded-full text-zinc-600 hover:text-blue-600 hover:bg-black/10 transition-colors"><Volume2 size={20} /></button>
-                                            </div>
-                                            <div className="flex flex-col md:flex-row gap-6">
-                                                <div className="flex-1">
-                                                    <p className={`font-hand text-xl leading-loose text-zinc-800 ${isLearned ? 'opacity-50' : ''}`}>{renderHandwrittenContent(section.content, index)}</p>
-                                                    {section.questions && section.questions.length > 0 && (
-                                                        <div className="mt-6 pt-6 border-t border-black/10">
-                                                            <h5 className="font-hand font-bold text-xl mb-2 flex items-center gap-2 text-zinc-700"><HelpCircle size={20} /> Check Your Understanding</h5>
-                                                            <div className="space-y-2">{section.questions.map(q => <div key={q.id}>{renderQuestion(q, index)}</div>)}</div>
-                                                        </div>
-                                                    )}
-                                                    <button onClick={() => toggleLearned(index)} className={`mt-6 flex items-center gap-2 px-5 py-2 rounded-full font-hand font-bold text-lg transition-colors border-2 ${isLearned ? 'bg-green-100/50 text-green-800 border-green-300' : 'bg-white/50 text-zinc-700 border-zinc-300 hover:bg-white hover:border-zinc-400'}`}><CheckCircle2 size={20} />{isLearned ? 'Done!' : 'Mark Learned'}</button>
-                                                </div>
-                                                <div className="shrink-0 w-full md:w-56 aspect-square bg-white rounded-lg p-2 border-2 border-zinc-200 shadow-sm rotate-2 relative">
-                                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-5 bg-zinc-200/50 rotate-2 backdrop-blur-sm"></div>
-                                                    <div className="w-full h-full overflow-hidden bg-white flex items-center justify-center">
-                                                        <img src={`https://image.pollinations.ai/prompt/${encodeURIComponent(section.visualKeywords + ' educational textbook diagram technical sketch line art minimalist white background')}?width=300&height=300&nologo=true&model=flux&seed=${index}`} alt="Diagram" className="w-full h-full object-contain mix-blend-multiply" loading="lazy" />
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur z-30">
+                    <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-2xl border border-red-200 text-red-600 text-center shadow-xl animate-pop-in">
+                        <p className="font-bold mb-2">Oops!</p>
+                        <p>{error}</p>
+                        <button onClick={() => setError('')} className="mt-4 text-sm bg-white border border-red-200 px-4 py-2 rounded-lg hover:bg-red-50">Dismiss</button>
+                    </div>
+                </div>
+            )}
+
+            {/* Empty State */}
+            {!loading && !notes && !mindMap && (
+                 <div className="h-full flex flex-col items-center justify-center text-primary-200/50 dark:text-zinc-800/50">
+                     <BookOpen size={80} strokeWidth={1} className="mb-4" />
+                     <p className="text-xl font-medium text-primary-300 dark:text-zinc-700">Ready to study?</p>
+                     <p className="text-sm text-primary-300/70 dark:text-zinc-700/70">Enter a topic above to generate notes or maps.</p>
+                 </div>
+            )}
+
+            {/* NOTES RENDERER */}
+            {!loading && activeTab === 'NOTES' && notes && (
+                <div className="h-full overflow-y-auto px-4 pb-20 scroll-smooth bg-[radial-gradient(var(--p-200)_1px,transparent_1px)] [background-size:20px_20px]">
+                    <div className="max-w-4xl mx-auto space-y-8 py-8">
+                        {/* Summary Sticky Note */}
+                        <div className="bg-yellow-100 text-yellow-900 p-6 rounded shadow-xl rotate-1 font-hand text-xl relative max-w-2xl mx-auto border-t-[12px] border-yellow-200/50">
+                            <h3 className="font-bold mb-2 flex items-center gap-2"><Lightbulb className="text-yellow-600"/> Quick Summary</h3>
+                            <p className="leading-relaxed">{notes.summary}</p>
+                        </div>
+
+                        {notes.sections.map((section, idx) => (
+                            <div key={idx} className={`relative p-6 md:p-10 rounded-sm shadow-xl transition-transform hover:scale-[1.01] ${NOTE_COLORS[idx % NOTE_COLORS.length]}`} style={{ transform: `rotate(${idx % 2 === 0 ? '-0.5deg' : '0.5deg'})` }}>
+                                {/* Tape Effect */}
+                                <div className={`absolute -top-4 left-1/2 -translate-x-1/2 w-32 h-8 ${TAPE_COLORS[idx % TAPE_COLORS.length]} opacity-60 rotate-1 backdrop-blur-[1px]`}></div>
+                                
+                                <h3 className="text-3xl font-bold font-hand text-black/80 mb-6 border-b-2 border-black/5 pb-2 inline-block">{section.title}</h3>
+                                
+                                <div className="flex flex-col md:flex-row gap-8">
+                                    <div className="flex-1 font-hand text-xl leading-loose text-black/90 tracking-wide">
+                                        {renderHandwrittenContent(section.content)}
+                                    </div>
+                                    <div className="md:w-64 shrink-0">
+                                        <div className="bg-white p-3 shadow-md rotate-2 border border-black/5">
+                                            <img 
+                                                src={`https://image.pollinations.ai/prompt/${encodeURIComponent(section.visualKeywords + ' educational sketch diagram minimalist line art')}?width=300&height=200&nologo=true&model=flux`}
+                                                className="w-full h-auto mix-blend-multiply filter contrast-125"
+                                                loading="lazy"
+                                                alt="diagram"
+                                            />
+                                            <p className="text-center font-hand text-xs text-zinc-400 mt-2">Figure {idx + 1}</p>
+                                        </div>
+                                        {/* Interaction Buttons */}
+                                        <div className="flex gap-2 mt-4 justify-center">
+                                            <button onClick={() => playText(section.content)} className="p-2 bg-black/5 rounded-full hover:bg-black/10 text-black/60 transition-colors"><Volume2 size={20}/></button>
+                                            <button onClick={() => toggleLearned(idx)} className={`p-2 rounded-full transition-colors ${learnedSections[idx] ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-black/5 text-black/40 hover:bg-black/10'}`}>
+                                                <CheckCircle2 size={20}/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Questions */}
+                                {section.questions && (
+                                    <div className="mt-8 pt-6 border-t-2 border-dashed border-black/10">
+                                        <h4 className="font-hand font-bold text-lg text-black/60 mb-3 flex gap-2 items-center"><HelpCircle size={18}/> Quick Quiz</h4>
+                                        <div className="space-y-4">
+                                            {section.questions.map(q => {
+                                                const key = `${idx}-${q.id}`;
+                                                const state = questionStates[key];
+                                                return (
+                                                    <div key={q.id} className="bg-white/60 p-4 rounded-lg border border-black/5 font-hand hover:bg-white/80 transition-colors">
+                                                        <p className="font-bold text-lg mb-2 text-black/80">{q.question.replace('____', '______')}</p>
+                                                        {q.type === 'MCQ' && (
+                                                            <div className="grid gap-2">
+                                                                {q.options?.map((opt, i) => (
+                                                                    <button 
+                                                                        key={i}
+                                                                        onClick={() => {
+                                                                            setQuestionStates(p => ({...p, [key]: opt}));
+                                                                            SoundService.playClick();
+                                                                        }}
+                                                                        className={`text-left px-3 py-2 rounded border transition-colors ${
+                                                                            state === opt 
+                                                                                ? (opt === q.answer ? 'bg-green-100 border-green-500 text-green-800' : 'bg-red-100 border-red-500 text-red-800')
+                                                                                : 'bg-white/50 border-black/10 hover:bg-white'
+                                                                        }`}
+                                                                    >
+                                                                        {opt}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {q.type === 'FILL_BLANK' && (
+                                                            <button 
+                                                                onClick={() => setQuestionStates(p => ({...p, [key]: true}))}
+                                                                className={`px-3 py-1 rounded border ${state ? 'bg-green-100 border-green-500 text-green-900' : 'bg-white border-black/20 text-primary-600'}`}
+                                                            >
+                                                                {state ? q.answer : 'Click to Reveal Answer'}
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            </div>
+                                                );
+                                            })}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                )}
                             </div>
+                        ))}
+                        
+                        {/* Real World Analogy Card */}
+                        <div className="bg-white/80 border-2 border-primary-200 p-8 rounded-xl relative overflow-hidden shadow-xl backdrop-blur-sm">
+                             <div className="absolute -right-10 -bottom-10 opacity-5 text-primary-900">
+                                 <BookOpen size={200} />
+                             </div>
+                             <h3 className="text-xl font-bold text-primary-700 mb-3 flex items-center gap-2">
+                                 <Sparkles className="text-primary-500" size={24}/> Real World Analogy
+                             </h3>
+                             <p className="text-zinc-700 italic font-hand text-xl leading-relaxed relative z-10">
+                                 "Think of {topic} like a busy city traffic system. The flow depends on the signals and the number of cars..." 
+                                 <br/>
+                                 <span className="text-sm not-italic text-primary-400 mt-3 block font-sans uppercase tracking-wider font-bold">(AI generated visualization)</span>
+                             </p>
                         </div>
-                    ) : (
-                        <div className="text-center opacity-40 font-sans mt-20">
-                            <BookOpen size={48} className="mx-auto mb-2" />
-                            <p>Enter a topic to generate a scrapbook.</p>
-                        </div>
-                    )}
+                    </div>
                 </div>
             )}
 
-            {/* FLASHCARDS PRO VIEW */}
-            {activeTab === 'FLASHCARDS' && (
-                <div className="h-full flex flex-col items-center justify-center min-h-[500px] animate-fade-in relative">
-                    {loading ? (
-                         <div className="flex flex-col items-center opacity-50">
-                            <RefreshCw className="animate-spin mb-2" />
-                            <span>Creating beautiful deck...</span>
-                        </div>
-                    ) : flashcards.length > 0 ? (
-                        <>
-                            {/* Progress Bar */}
-                            <div className="w-full max-w-md mb-8">
-                                <div className="flex justify-between text-sm text-zinc-500 dark:text-zinc-400 mb-2 font-medium">
-                                    <span>Progress</span>
-                                    <span>{masteredCards.length} / {flashcards.length} Mastered</span>
-                                </div>
-                                <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(masteredCards.length / flashcards.length) * 100}%` }}></div>
-                                </div>
-                            </div>
+            {/* MIND MAP RENDERER */}
+            {!loading && activeTab === 'MINDMAP' && mindMap && (
+                <div className="h-full w-full bg-zinc-950 overflow-hidden relative cursor-grab active:cursor-grabbing">
+                    {/* Dynamic Themed Background */}
+                    <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(circle_at_center,var(--p-900)_0%,transparent_70%)]"></div>
+                    <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(var(--p-700) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
-                            <div className="w-full max-w-sm md:max-w-md perspective-1000 relative">
-                                {/* The Card */}
-                                <div 
-                                    className={`relative w-full aspect-[3/4] cursor-pointer transition-transform duration-700 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}
-                                    onClick={() => { if(!isFlipped) { setIsFlipped(true); SoundService.playClick(); }}}
-                                >
-                                    {/* Front */}
-                                    <div className="absolute inset-0 backface-hidden bg-white dark:bg-zinc-900 rounded-[2rem] border-2 border-zinc-100 dark:border-zinc-800 shadow-2xl flex flex-col items-center justify-center p-8 text-center overflow-hidden">
-                                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
-                                        <div className="text-6xl mb-6 animate-bounce-soft">{flashcards[currentCardIndex].emoji || '💡'}</div>
-                                        <h3 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-white mb-8 leading-tight">{flashcards[currentCardIndex].question}</h3>
-                                        
-                                        {flashcards[currentCardIndex].hint && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); setShowHint(!showHint); }}
-                                                className="text-sm text-zinc-400 hover:text-blue-500 flex items-center gap-1 transition-colors"
-                                            >
-                                                <Lightbulb size={16} /> {showHint ? flashcards[currentCardIndex].hint : 'Need a hint?'}
-                                            </button>
-                                        )}
-                                        <p className="absolute bottom-8 text-xs text-zinc-400 uppercase tracking-widest animate-pulse">Tap to Flip</p>
-                                    </div>
-                                    
-                                    {/* Back */}
-                                    <div className="absolute inset-0 backface-hidden bg-zinc-900 dark:bg-black text-white rounded-[2rem] shadow-2xl flex flex-col items-center justify-center p-8 text-center border-2 border-zinc-800" style={{ transform: 'rotateY(180deg)' }}>
-                                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-6">Answer</span>
-                                        <h3 className="text-xl md:text-2xl font-medium leading-relaxed">{flashcards[currentCardIndex].answer}</h3>
-                                        
-                                        {/* Mastery Buttons */}
-                                        <div className="mt-12 flex gap-4 w-full">
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleCardResult(false); }}
-                                                className="flex-1 py-3 rounded-xl bg-red-500/10 text-red-400 font-bold border border-red-500/50 hover:bg-red-500 hover:text-white transition-all"
-                                            >
-                                                <X className="mx-auto mb-1" size={20} /> Study Again
-                                            </button>
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleCardResult(true); }}
-                                                className="flex-1 py-3 rounded-xl bg-green-500/10 text-green-400 font-bold border border-green-500/50 hover:bg-green-500 hover:text-white transition-all"
-                                            >
-                                                <Check className="mx-auto mb-1" size={20} /> Got It
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Card Navigation */}
-                             <div className="flex justify-between items-center w-full max-w-xs mt-8">
-                                <button onClick={() => setCurrentCardIndex(Math.max(0, currentCardIndex - 1))} disabled={currentCardIndex === 0} className="p-3 text-zinc-400 hover:text-white disabled:opacity-30"><ChevronLeft size={24} /></button>
-                                <span className="font-mono text-zinc-500 text-sm">{currentCardIndex + 1} / {flashcards.length}</span>
-                                <button onClick={() => setCurrentCardIndex(Math.min(flashcards.length - 1, currentCardIndex + 1))} disabled={currentCardIndex === flashcards.length - 1} className="p-3 text-zinc-400 hover:text-white disabled:opacity-30"><ChevronRight size={24} /></button>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="text-center opacity-40 font-sans">
-                            <Layers size={64} className="mx-auto mb-4 text-zinc-300 dark:text-zinc-700" />
-                            <h3 className="text-xl font-bold mb-2">Flashcards Pro</h3>
-                            <p>Enter a topic to generate a gamified deck.</p>
-                        </div>
-                    )}
-                </div>
-            )}
+                    {/* Controls */}
+                    <div className="absolute bottom-8 right-8 flex flex-col gap-2 z-50">
+                        <button onClick={() => setMapScale(s => s + 0.2)} className="p-3 bg-zinc-800/90 text-white rounded-xl border border-zinc-700 hover:bg-primary-600 hover:border-primary-500 transition-colors shadow-lg"><Plus size={20}/></button>
+                        <button onClick={() => setMapScale(1)} className="p-3 bg-zinc-800/90 text-white rounded-xl border border-zinc-700 font-mono text-xs shadow-lg">{Math.round(mapScale*100)}%</button>
+                        <button onClick={() => setMapScale(s => Math.max(0.2, s - 0.2))} className="p-3 bg-zinc-800/90 text-white rounded-xl border border-zinc-700 hover:bg-primary-600 hover:border-primary-500 transition-colors shadow-lg"><Minus size={20}/></button>
+                    </div>
 
-            {/* MIND MAP VIEW - INFINITE CANVAS GALAXY */}
-            {activeTab === 'MINDMAP' && (
-                <div className="h-full relative bg-[#0f172a] overflow-hidden rounded-3xl border border-zinc-800 cursor-grab active:cursor-grabbing group">
-                     {/* Background Grid */}
-                     <div 
-                        className="absolute inset-0 opacity-20 pointer-events-none" 
-                        style={{ 
-                            backgroundImage: 'radial-gradient(#3b82f6 1px, transparent 1px)', 
-                            backgroundSize: '30px 30px',
-                            transform: `translate(${mapPosition.x % 30}px, ${mapPosition.y % 30}px)`
-                        }}
-                     ></div>
+                    <div className="absolute top-4 left-4 z-50 bg-black/60 backdrop-blur text-zinc-400 text-xs px-4 py-2 rounded-full border border-zinc-800 pointer-events-none flex items-center gap-2">
+                        <MousePointer2 size={12}/> Drag to pan • Scroll to zoom
+                    </div>
 
-                     {loading ? (
-                         <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 z-50 bg-black/50 backdrop-blur-sm">
-                            <RefreshCw className="animate-spin mb-4" size={32} />
-                            <span>Mapping the universe of knowledge...</span>
+                    <div 
+                        className="w-full h-full"
+                        onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+                        onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
+                        onMouseUp={() => setIsDraggingMap(false)}
+                        onMouseLeave={() => setIsDraggingMap(false)}
+                        onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
+                        onTouchMove={(e) => handleMove(e.touches[0].clientX, e.touches[0].clientY)}
+                        onTouchEnd={() => setIsDraggingMap(false)}
+                        onWheel={(e) => setMapScale(s => Math.max(0.2, Math.min(3, s - e.deltaY * 0.001)))}
+                    >
+                        <div 
+                            className="w-full h-full flex items-center justify-center will-change-transform"
+                            style={{ transform: `translate(${mapPosition.x}px, ${mapPosition.y}px) scale(${mapScale})` }}
+                        >
+                            {renderMindMapNode(mindMap)}
                         </div>
-                    ) : mindMap ? (
-                        <>
-                            {/* Infinite Canvas Wrapper */}
-                            <div 
-                                ref={mapRef}
-                                className="w-full h-full origin-center flex items-center justify-center"
-                                onMouseDown={handleMouseDown}
-                                onMouseMove={handleMouseMove}
-                                onMouseUp={handleMouseUp}
-                                onMouseLeave={handleMouseUp}
-                            >
-                                <div 
-                                    className="transition-transform duration-75 ease-linear"
-                                    style={{ transform: `translate(${mapPosition.x}px, ${mapPosition.y}px) scale(${mapScale})` }}
-                                >
-                                    {renderMindMapNode(mindMap)}
-                                </div>
-                            </div>
-                            
-                            {/* Controls */}
-                            <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-50">
-                                <button onClick={() => setMapScale(s => Math.min(2, s + 0.1))} className="p-3 bg-zinc-800 text-white rounded-xl shadow-lg hover:bg-zinc-700 border border-zinc-700"><Plus size={20}/></button>
-                                <button onClick={() => setMapScale(s => Math.max(0.5, s - 0.1))} className="p-3 bg-zinc-800 text-white rounded-xl shadow-lg hover:bg-zinc-700 border border-zinc-700"><Minus size={20}/></button>
-                                <button onClick={() => { setMapScale(1); setMapPosition({x:0, y:0}); }} className="p-3 bg-zinc-800 text-white rounded-xl shadow-lg hover:bg-zinc-700 border border-zinc-700"><Move size={20}/></button>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center opacity-40 font-sans pointer-events-none">
-                            <GitFork size={64} className="mx-auto mb-4 text-blue-500" />
-                            <h3 className="text-2xl font-bold text-white mb-2">Galaxy Mind Map</h3>
-                            <p className="text-zinc-400">Enter a topic to generate an interactive map.</p>
-                        </div>
-                    )}
+                    </div>
                 </div>
             )}
         </div>

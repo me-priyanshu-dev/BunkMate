@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Message, TypingStatus, Poll } from '../types';
 import { Send, Users, MessageSquare, Reply, Smile, Check, CheckCheck, ArrowDown, BarChart2, Plus, X, Trash2, Eye } from 'lucide-react';
@@ -354,12 +353,12 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const onlineCount = users.filter(u => (Date.now() - (u.lastSeen || 0)) < 15000).length;
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-zinc-900 md:rounded-3xl md:border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xl relative transition-colors duration-300">
+    <div className="flex flex-col h-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:rounded-3xl md:border border-primary-100 dark:border-zinc-800 overflow-hidden shadow-xl relative transition-colors duration-300">
       {/* Header */}
       <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center z-50 sticky top-0 shrink-0 shadow-sm transition-colors">
         <div>
             <h2 className="text-zinc-900 dark:text-white font-bold text-lg flex items-center gap-2">
-              <MessageSquare className="text-blue-600 dark:text-blue-500 animate-pulse" size={20} />
+              <MessageSquare className="text-primary-600 dark:text-primary-500 animate-pulse" size={20} />
               Squad Chat
             </h2>
             <div className="flex items-center gap-2 mt-1">
@@ -440,17 +439,17 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                             {/* Reply Context Bubble */}
                             {msg.replyTo && (
                                 <div className={`mb-1 px-3 py-2 rounded-xl text-xs border-l-2 bg-zinc-200/80 dark:bg-zinc-900/80 border-zinc-400 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 w-full truncate opacity-80 ${isMe ? 'rounded-br-none mr-1' : 'rounded-bl-none ml-1'}`}>
-                                    <span className="font-bold text-blue-500 dark:text-blue-400 block text-[10px] mb-0.5">{msg.replyTo.userName}</span>
+                                    <span className="font-bold text-primary-500 dark:text-primary-400 block text-[10px] mb-0.5">{msg.replyTo.userName}</span>
                                     {msg.replyTo.text}
                                 </div>
                             )}
                             
                             {/* POLL CARD */}
                             {msg.poll ? (
-                                <div className={`p-4 rounded-2xl border ${isMe ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'} min-w-[250px] w-full`}>
+                                <div className={`p-4 rounded-2xl border ${isMe ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'} min-w-[250px] w-full`}>
                                     <div className="flex items-center gap-2 mb-3">
-                                        <BarChart2 size={16} className={isMe ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500 dark:text-zinc-400'} />
-                                        <span className={`font-bold text-sm ${isMe ? 'text-blue-800 dark:text-blue-200' : 'text-zinc-800 dark:text-zinc-200'} break-words`}>Poll: {msg.poll.question}</span>
+                                        <BarChart2 size={16} className={isMe ? 'text-primary-600 dark:text-primary-400' : 'text-zinc-500 dark:text-zinc-400'} />
+                                        <span className={`font-bold text-sm ${isMe ? 'text-primary-800 dark:text-primary-200' : 'text-zinc-800 dark:text-zinc-200'} break-words`}>Poll: {msg.poll.question}</span>
                                     </div>
                                     <div className="space-y-2">
                                         {msg.poll.options.map(opt => {
@@ -466,14 +465,14 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                                         onVote && onVote(msg.id, opt.id);
                                                         SoundService.playClick();
                                                     }}
-                                                    className={`w-full relative h-10 rounded-lg overflow-hidden border transition-all ${isVoted ? 'border-blue-500 ring-1 ring-blue-500' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'}`}
+                                                    className={`w-full relative h-10 rounded-lg overflow-hidden border transition-all ${isVoted ? 'border-primary-500 ring-1 ring-primary-500' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'}`}
                                                 >
                                                     <div className="absolute top-0 left-0 bottom-0 bg-zinc-100 dark:bg-zinc-700/50 w-full" /> 
-                                                    <div className={`absolute top-0 left-0 bottom-0 transition-all duration-500 ${isVoted ? 'bg-blue-500/20 dark:bg-blue-600/40' : 'bg-zinc-300/40 dark:bg-zinc-600/40'}`} style={{ width: `${percent}%` }} />
+                                                    <div className={`absolute top-0 left-0 bottom-0 transition-all duration-500 ${isVoted ? 'bg-primary-500/20 dark:bg-primary-600/40' : 'bg-zinc-300/40 dark:bg-zinc-600/40'}`} style={{ width: `${percent}%` }} />
                                                     <div className="absolute inset-0 flex items-center justify-between px-3 text-xs font-medium z-10">
                                                         <span className="text-zinc-900 dark:text-white flex items-center gap-2 truncate">
                                                             {opt.text}
-                                                            {isVoted && <Check size={12} className="text-blue-500 dark:text-blue-400" />}
+                                                            {isVoted && <Check size={12} className="text-primary-500 dark:text-primary-400" />}
                                                         </span>
                                                         <span className="text-zinc-600 dark:text-zinc-300">{voteCount}</span>
                                                     </div>
@@ -494,7 +493,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                     }}
                                     className={`relative px-4 py-2 rounded-2xl text-[15px] shadow-sm leading-relaxed break-words whitespace-pre-wrap transition-all cursor-pointer select-none ${
                                     isMe 
-                                    ? 'bg-blue-600 text-white rounded-tr-sm' 
+                                    ? 'bg-primary-600 text-white rounded-tr-sm' 
                                     : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-tl-sm border border-zinc-200 dark:border-zinc-700/50'
                                 }`}
                                     style={{ overflowWrap: 'anywhere' }}
@@ -502,11 +501,11 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                     {msg.text}
                                     
                                     <div 
-                                        className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-blue-200' : 'text-zinc-400 dark:text-zinc-500'}`}
+                                        className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-primary-200' : 'text-zinc-400 dark:text-zinc-500'}`}
                                     >
                                         <span>{formatTime(msg.timestamp)}</span>
                                         {isMe && (
-                                            isAllRead ? <CheckCheck size={14} className="text-blue-300" /> : <Check size={14} className="text-blue-300/70" />
+                                            isAllRead ? <CheckCheck size={14} className="text-primary-300" /> : <Check size={14} className="text-primary-300/70" />
                                         )}
                                     </div>
 
@@ -603,7 +602,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                         SoundService.playClick();
                         setActiveQuickMenuId(null);
                     }}
-                    className="hover:scale-110 transition-transform p-1 text-zinc-400 hover:text-blue-500"
+                    className="hover:scale-110 transition-transform p-1 text-zinc-400 hover:text-primary-500"
                     title="More Emojis"
                 >
                     <Plus size={20} />
@@ -637,7 +636,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                 scrollToBottom('smooth');
                 SoundService.playClick();
             }}
-            className="absolute bottom-24 right-6 bg-white dark:bg-zinc-800 text-blue-500 p-2.5 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700 transition-transform active:scale-95 z-50 animate-bounce"
+            className="absolute bottom-24 right-6 bg-white dark:bg-zinc-800 text-primary-500 p-2.5 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700 transition-transform active:scale-95 z-50 animate-bounce"
         >
             <ArrowDown size={24} />
         </button>
@@ -675,7 +674,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
         <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 animate-fade-in">
              <div className="bg-white dark:bg-zinc-900 w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-zinc-200 dark:border-zinc-800">
                  <div className="flex justify-between items-center mb-4">
-                     <h3 className="font-bold text-lg flex items-center gap-2 text-zinc-900 dark:text-white"><BarChart2 className="text-blue-500" /> Create Poll</h3>
+                     <h3 className="font-bold text-lg flex items-center gap-2 text-zinc-900 dark:text-white"><BarChart2 className="text-primary-500" /> Create Poll</h3>
                      <button onClick={() => setShowPollCreator(false)} className="text-zinc-500 hover:text-red-500"><X size={20}/></button>
                  </div>
                  
@@ -684,7 +683,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                     placeholder="Ask a question..."
                     value={pollQuestion}
                     onChange={e => setPollQuestion(e.target.value)}
-                    className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-all"
+                    className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-primary-500 dark:text-white transition-all"
                  />
                  
                  <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
@@ -699,7 +698,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                     newOpts[i] = e.target.value;
                                     setPollOptions(newOpts);
                                 }}
-                                className="flex-1 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 dark:text-white transition-all"
+                                className="flex-1 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 dark:text-white transition-all"
                              />
                              {pollOptions.length > 2 && (
                                  <button onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))} className="text-zinc-400 hover:text-red-500"><Trash2 size={18}/></button>
@@ -710,13 +709,13 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                  
                  <button 
                     onClick={() => setPollOptions([...pollOptions, ''])}
-                    className="text-sm text-blue-500 font-medium flex items-center gap-1 mb-4 hover:underline"
+                    className="text-sm text-primary-500 font-medium flex items-center gap-1 mb-4 hover:underline"
                  >
                      <Plus size={16} /> Add Option
                  </button>
 
                  <div className="flex items-center gap-2 mb-6" onClick={() => setPollAllowMultiple(!pollAllowMultiple)}>
-                     <div className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-colors ${pollAllowMultiple ? 'bg-blue-500 border-blue-500' : 'border-zinc-400'}`}>
+                     <div className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-colors ${pollAllowMultiple ? 'bg-primary-500 border-primary-500' : 'border-zinc-400'}`}>
                          {pollAllowMultiple && <Check size={14} className="text-white" />}
                      </div>
                      <span className="text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer">Allow multiple answers</span>
@@ -725,7 +724,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                  <button 
                     onClick={handleSendPoll}
                     disabled={!pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
-                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-all"
+                    className="w-full bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-all"
                  >
                      Send Poll
                  </button>
@@ -737,8 +736,8 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
       <div className="p-3 md:p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 shrink-0 z-40">
         {replyingTo && (
             <div className="flex justify-between items-center bg-zinc-100 dark:bg-zinc-800/50 p-2 px-4 rounded-t-xl border-b border-zinc-200 dark:border-zinc-700/50 mb-2 animate-slide-up">
-                <div className="flex flex-col text-sm border-l-2 border-blue-500 pl-2">
-                    <span className="font-bold text-blue-500">{replyingTo.userName}</span>
+                <div className="flex flex-col text-sm border-l-2 border-primary-500 pl-2">
+                    <span className="font-bold text-primary-500">{replyingTo.userName}</span>
                     <span className="text-zinc-500 truncate max-w-[200px]">{replyingTo.text}</span>
                 </div>
                 <button onClick={() => setReplyingTo(null)}><X size={16} className="text-zinc-400" /></button>
@@ -748,12 +747,12 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
         <div className="flex items-end gap-2 max-w-4xl mx-auto">
             <button 
                 onClick={() => setShowPollCreator(true)}
-                className="p-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                className="p-3 rounded-xl bg-primary-50 dark:bg-primary-900/10 text-primary-500 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/20 transition-colors"
                 title="Create Poll"
             >
                 <BarChart2 size={20} />
             </button>
-            <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center border border-transparent focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+            <div className="flex-1 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl flex items-center border border-zinc-200 dark:border-zinc-800 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 transition-all">
                 <textarea
                     value={input}
                     onChange={handleInputChange}
@@ -773,7 +772,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                 disabled={!input.trim()}
                 className={`p-3 rounded-xl transition-all duration-200 ${
                     input.trim() 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95' 
+                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20 hover:scale-105 active:scale-95' 
                     : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                 }`}
             >

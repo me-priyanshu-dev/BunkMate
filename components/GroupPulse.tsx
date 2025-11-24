@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, DailyStatus } from '../types';
 import { Check, X, HelpCircle, UserPlus, Share2, RefreshCw, Globe2 } from 'lucide-react';
@@ -47,7 +46,7 @@ const GroupPulse: React.FC<Props> = ({ users, statuses, onRefresh, currentUser, 
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 md:p-8 border border-zinc-200 dark:border-zinc-800 transition-colors duration-300 shadow-sm">
+    <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-primary-100 dark:border-zinc-800 transition-colors duration-300 shadow-sm">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-2 md:gap-3 overflow-hidden">
             <h3 className="text-zinc-900 dark:text-white font-bold text-lg md:text-2xl truncate">Squad Status <span className="text-zinc-500 font-normal text-base md:text-lg hidden sm:inline">({dateLabel})</span></h3>
@@ -64,7 +63,7 @@ const GroupPulse: React.FC<Props> = ({ users, statuses, onRefresh, currentUser, 
         </div>
         <button 
           onClick={() => setShowInvite(!showInvite)}
-          className="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-600/10 text-blue-600 dark:text-blue-500 hover:bg-blue-200 dark:hover:bg-blue-600/20 text-xs md:text-sm font-semibold transition-colors"
+          className="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-100 dark:bg-primary-600/10 text-primary-600 dark:text-primary-500 hover:bg-primary-200 dark:hover:bg-primary-600/20 text-xs md:text-sm font-semibold transition-colors"
         >
           <UserPlus size={16} />
           {showInvite ? 'Close' : 'Invite'}
@@ -77,7 +76,7 @@ const GroupPulse: React.FC<Props> = ({ users, statuses, onRefresh, currentUser, 
             <Share2 size={18} /> Invite Friends
           </p>
           <div className="flex items-start gap-3 text-zinc-600 dark:text-zinc-400 mb-4 bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800">
-             <Globe2 size={20} className="shrink-0 mt-0.5 text-blue-500" />
+             <Globe2 size={20} className="shrink-0 mt-0.5 text-primary-500" />
              <p className="text-sm leading-relaxed">
                 Tell your friends to enter this Class Code on their devices to join the squad:
              </p>
@@ -99,7 +98,7 @@ const GroupPulse: React.FC<Props> = ({ users, statuses, onRefresh, currentUser, 
           return (
             <div 
               key={user.id} 
-              className={`flex items-center justify-between p-3 md:p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800/50 transition-all ${user.isCurrentUser ? 'border-l-4 border-l-blue-500' : ''}`}
+              className={`flex items-center justify-between p-3 md:p-4 rounded-2xl bg-white dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800/50 transition-all ${user.isCurrentUser ? 'border-l-4 border-l-primary-500 ring-1 ring-primary-100 dark:ring-primary-900/30' : ''}`}
             >
               <div className="flex items-center gap-3 md:gap-4 min-w-0 mr-2">
                 <div className="relative shrink-0">
@@ -118,7 +117,7 @@ const GroupPulse: React.FC<Props> = ({ users, statuses, onRefresh, currentUser, 
                   
                   {/* Status Note or Online Status */}
                   {note ? (
-                      <span className="text-xs font-medium text-blue-500 dark:text-blue-400 block truncate italic">
+                      <span className="text-xs font-medium text-primary-500 dark:text-primary-400 block truncate italic">
                         "{note}"
                       </span>
                   ) : (

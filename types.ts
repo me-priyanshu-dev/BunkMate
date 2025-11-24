@@ -9,6 +9,7 @@ export interface User {
   targetDaysPerWeek: number; // User's personal goal (1-7)
   examName?: string;
   examDate?: string; // YYYY-MM-DD
+  theme?: 'blue' | 'purple' | 'emerald';
 }
 
 export type StatusType = 'GOING' | 'NOT_GOING' | 'UNDECIDED';
@@ -73,15 +74,6 @@ export interface CalendarEvent {
   type: EventType;
   createdBy: string; // userName
   timestamp: number;
-}
-
-export interface Flashcard {
-  id: string;
-  question: string;
-  answer: string;
-  hint?: string;
-  emoji?: string;
-  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export interface MindMapNode {

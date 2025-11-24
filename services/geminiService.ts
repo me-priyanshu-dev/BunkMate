@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { DailyStatus, User, AttendanceStats, Flashcard, MindMapNode, StudyNote } from '../types';
+import { DailyStatus, User, AttendanceStats, MindMapNode, StudyNote } from '../types';
 
 const getAIClient = () => {
   if (!process.env.API_KEY) {
@@ -8,6 +8,33 @@ const getAIClient = () => {
     return null;
   }
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
+
+// Robust JSON cleaner to handle AI markdown output
+const cleanJSON = (text: string) => {
+  if (!text) return "{}";
+  // Remove markdown code blocks
+  let cleaned = text.replace(/```json\s*|```/g, '').trim();
+  
+  // Find the first '{' or '[' and the last '}' or ']'
+  const firstBrace = cleaned.indexOf('{');
+  const firstBracket = cleaned.indexOf('[');
+  
+  if (firstBrace === -1 && firstBracket === -1) return "{}";
+  
+  let start = 0;
+  let end = cleaned.length;
+  
+  // Determine if we are looking for an object or array
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+      start = firstBrace;
+      end = cleaned.lastIndexOf('}') + 1;
+  } else if (firstBracket !== -1) {
+      start = firstBracket;
+      end = cleaned.lastIndexOf(']') + 1;
+  }
+  
+  return cleaned.substring(start, end);
 };
 
 export const askGeminiAdvisor = async (
@@ -74,113 +101,92 @@ export const askGeminiAdvisor = async (
 
 export const generateStudyMaterial = async (
   topic: string, 
-  type: 'NOTES' | 'FLASHCARDS' | 'MINDMAP'
-): Promise<StudyNote | Flashcard[] | MindMapNode | null> => {
+  type: 'NOTES' | 'MINDMAP'
+): Promise<StudyNote | MindMapNode | null> => {
   const ai = getAIClient();
-  if (!ai) throw new Error("API Key missing");
-  
-  if (type === 'NOTES') {
-    const prompt = `Create a creative, structured, and INTERACTIVE study note for a Class 12 student on the topic: "${topic}".
-    
-    FORMATTING RULES:
-    - Use **bold** for key terms.
-    - Use ==double equals== to highlight definitions.
-    - Tone: Handwritten, friendly, easy to read.
-    
-    INTERACTIVITY:
-    Include at least 2 questions per section to test understanding. Mix these types:
-    1. FILL_BLANK: A sentence with a missing key word.
-    2. MCQ: A question with 4 options.
-    3. SUBJECTIVE: A short thought-provoking question.
-    
-    Return a valid JSON object with the following structure:
-    {
-      "topic": "${topic}",
-      "summary": "A short 2-sentence sticky-note summary.",
-      "sections": [
-        {
-          "title": "Subtopic Title",
-          "content": "Explanation using **bold** and ==highlights==. Max 3 sentences.",
-          "visualKeywords": "3 words describing a specific scientific diagram for this section",
-          "questions": [
-             {
-               "id": "q1",
-               "type": "FILL_BLANK",
-               "question": "The powerhouse of the cell is ____.",
-               "answer": "mitochondria"
-             }
-          ]
-        }
-      ]
-    }
-    Ensure at least 4 sections.`;
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' }
-    });
-    
-    try {
-        return JSON.parse(response.text || "{}") as StudyNote;
-    } catch (e) {
-        console.error("Failed to parse notes JSON", e);
-        return null;
-    }
+  if (!ai) {
+      console.error("API Key missing");
+      return null;
   }
   
-  if (type === 'FLASHCARDS') {
-    const prompt = `Create 8 engaging study flashcards for "${topic}". 
-    Return a JSON array of objects with these properties:
-    - "question": string
-    - "answer": string (keep it concise)
-    - "hint": string (a small clue)
-    - "emoji": string (a single relevant emoji)
-    
-    Make them fun and conceptual.`;
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' }
-    });
-    return JSON.parse(response.text || "[]");
-  }
-  
-  if (type === 'MINDMAP') {
-    const prompt = `Create a hierarchical mind map structure for the topic "${topic}". 
-    Return a single JSON object representing the root node. 
-    
-    Structure:
-    {
-      "id": "root",
-      "label": "Main Topic",
-      "emoji": "🧬",
-      "children": [
-        {
-          "id": "c1",
-          "label": "Subtopic",
-          "emoji": "🔬",
-          "children": []
-        }
-      ]
+  try {
+    if (type === 'NOTES') {
+      const prompt = `Create a creative, structured, and INTERACTIVE study note for a Class 12 student on the topic: "${topic}".
+      
+      FORMATTING RULES:
+      - Use **bold** for key terms.
+      - Use ==double equals== to highlight definitions.
+      - Tone: Handwritten, friendly, easy to read.
+      
+      INTERACTIVITY:
+      Include at least 2 questions per section to test understanding. Mix these types:
+      1. FILL_BLANK: A sentence with a missing key word.
+      2. MCQ: A question with 4 options.
+      3. SUBJECTIVE: A short thought-provoking question.
+      
+      Return a valid JSON object with the following structure:
+      {
+        "topic": "${topic}",
+        "summary": "A short 2-sentence sticky-note summary.",
+        "sections": [
+          {
+            "title": "Subtopic Title",
+            "content": "Explanation using **bold** and ==highlights==. Max 3 sentences.",
+            "visualKeywords": "3 words describing a specific scientific diagram for this section",
+            "questions": [
+              {
+                "id": "q1",
+                "type": "FILL_BLANK",
+                "question": "The powerhouse of the cell is ____.",
+                "answer": "mitochondria"
+              }
+            ]
+          }
+        ]
+      }
+      Ensure at least 4 sections.`;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
+      });
+      
+      const cleanText = cleanJSON(response.text || "{}");
+      return JSON.parse(cleanText) as StudyNote;
     }
     
-    Rules:
-    1. Root node should be the main topic.
-    2. Break it down into 3-5 main branches.
-    3. Each branch should have 2-3 sub-branches.
-    4. Provide a relevant "emoji" for EVERY node.
-    5. Max depth 3.
-    6. Keep labels short (max 3 words).`;
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' }
-    });
-    return JSON.parse(response.text || "{}");
-  }
+    if (type === 'MINDMAP') {
+      const prompt = `Create a hierarchical mind map for the topic: "${topic}".
+      Return a JSON object representing the root node with this structure:
+      {
+        "id": "root",
+        "label": "${topic}",
+        "emoji": "🧠",
+        "children": [
+          {
+            "id": "child_1",
+            "label": "Subtopic",
+            "emoji": "🔹",
+            "children": [...]
+          }
+        ]
+      }
+      Ensure at least 3 levels of depth. Use relevant emojis for every node.`;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
+      });
+      const cleanText = cleanJSON(response.text || "{}");
+      return JSON.parse(cleanText) as MindMapNode;
+    }
 
-  return null;
+    return null;
+
+  } catch (error) {
+    console.error("Gemini Generation Error:", error);
+    return null;
+  }
 };

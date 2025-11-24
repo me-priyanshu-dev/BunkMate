@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, Message, TypingStatus, Poll } from '../types';
 import { Send, Users, MessageSquare, Reply, Smile, Check, CheckCheck, ArrowDown, BarChart2, Plus, X, Trash2, Eye } from 'lucide-react';
 import { SoundService } from '../services/soundService';
+import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 
 interface Props {
   currentUser: User;
@@ -24,15 +25,20 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
   const startX = useRef<number | null>(null);
   const startY = useRef<number | null>(null);
   const isHorizontalSwipe = useRef<boolean>(false);
+  const hasTriggeredHaptic = useRef<boolean>(false);
+  const SWIPE_THRESHOLD = 60;
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!e.touches || e.touches.length === 0) return;
     startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
     isHorizontalSwipe.current = false;
+    hasTriggeredHaptic.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (startX.current === null || startY.current === null) return;
+    if (!e.touches || e.touches.length === 0) return;
     
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
@@ -55,23 +61,36 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
 
     if (isHorizontalSwipe.current) {
         // Only allow swipe right
-        if (diffX > 0 && diffX < 120) {
-            setTranslateX(diffX);
+        if (diffX > 0) {
+            // Add resistance / cap at 120px
+            const dampening = diffX > SWIPE_THRESHOLD ? 0.5 : 1;
+            const movement = Math.min(diffX * dampening, 120);
+            setTranslateX(movement);
+
+            // Haptic feedback when crossing threshold
+            if (movement > SWIPE_THRESHOLD && !hasTriggeredHaptic.current) {
+                try {
+                    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                        navigator.vibrate(10);
+                    }
+                } catch (e) { /* Ignore vibration errors */ }
+                hasTriggeredHaptic.current = true;
+            } else if (movement < SWIPE_THRESHOLD) {
+                hasTriggeredHaptic.current = false;
+            }
         }
     }
   };
 
   const handleTouchEnd = () => {
-    if (translateX > 50) {
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            navigator.vibrate(10);
-        }
+    if (translateX > SWIPE_THRESHOLD) {
         onReply();
     }
     setTranslateX(0);
     startX.current = null;
     startY.current = null;
     isHorizontalSwipe.current = false;
+    hasTriggeredHaptic.current = false;
   };
 
   const handleTouchCancel = () => {
@@ -79,12 +98,12 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
       startX.current = null;
       startY.current = null;
       isHorizontalSwipe.current = false;
+      hasTriggeredHaptic.current = false;
   };
 
   return (
     <div 
-        className="relative w-full"
-        style={{ touchAction: 'pan-y' }} // Explicitly allow vertical scrolling
+        className="relative w-full touch-pan-y select-none"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -95,9 +114,9 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onReply: () => voi
             className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center text-zinc-400 z-0 pointer-events-none"
             style={{ 
                 left: '10px',
-                opacity: Math.min(translateX / 50, 1),
-                transform: `translateY(-50%) scale(${Math.min(translateX / 50, 1.2)})`,
-                transition: 'opacity 0.1s'
+                opacity: Math.min(translateX / SWIPE_THRESHOLD, 1),
+                transform: `translateY(-50%) scale(${Math.min(translateX / SWIPE_THRESHOLD, 1.2)})`,
+                transition: 'opacity 0.1s, transform 0.1s'
             }}
         >
             <div className="bg-zinc-200 dark:bg-zinc-800 p-2 rounded-full shadow-sm">
@@ -122,14 +141,25 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
   const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMessageCount = useRef(messages.length);
   
+  // Emoji Picker State
+  const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
+  const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
+  
+  // Quick Reaction Menu Positioning
+  const [quickMenuPos, setQuickMenuPos] = useState<{ top?: number, bottom?: number, left?: number, right?: number, transform?: string } | null>(null);
+  const [activeQuickMenuId, setActiveQuickMenuId] = useState<string | null>(null);
+
   // Poll Creator State
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
+
+  // Detect Theme for Emoji Picker
+  const isDarkMode = document.documentElement.classList.contains('dark');
 
   // Mark unread messages as read when viewing
   useEffect(() => {
@@ -194,12 +224,23 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     }
   }, [typingUsers.length]);
 
+  // Close quick menu on scroll
+  useEffect(() => {
+    const handleGlobalScroll = () => {
+       if (activeQuickMenuId) setActiveQuickMenuId(null);
+    };
+    window.addEventListener('scroll', handleGlobalScroll, true);
+    return () => window.removeEventListener('scroll', handleGlobalScroll, true);
+  }, [activeQuickMenuId]);
+
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
     // Show button if more than 150px away from bottom
     const isAwayFromBottom = scrollHeight - scrollTop - clientHeight > 150;
     setShowScrollButton(isAwayFromBottom);
+    
+    if (activeQuickMenuId) setActiveQuickMenuId(null);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -218,7 +259,6 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     setInput('');
     setReplyingTo(null);
     onSendTyping(false);
-    // Force immediate scroll for own message
     setTimeout(() => scrollToBottom('smooth'), 50);
   };
 
@@ -239,6 +279,61 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
     setPollOptions(['', '']);
     setTimeout(() => scrollToBottom('smooth'), 50);
   };
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    if (activeReactionMessageId) {
+        onReact(activeReactionMessageId, emojiData.emoji);
+        SoundService.playClick();
+        setShowFullEmojiPicker(false);
+        setActiveReactionMessageId(null);
+    }
+  };
+
+  const toggleQuickMenu = (e: React.MouseEvent, msgId: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (activeQuickMenuId === msgId) {
+          setActiveQuickMenuId(null);
+          return;
+      }
+
+      const button = e.currentTarget as HTMLButtonElement;
+      const rect = button.getBoundingClientRect();
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      // Estimated width of the reaction menu (6 emojis + padding)
+      const MENU_WIDTH = 320; 
+      const SCREEN_PADDING = 10;
+
+      let pos: any = {};
+      
+      // Vertical Logic: Bias towards opening upwards on mobile (bottom heavy)
+      if (rect.bottom > screenHeight * 0.6) {
+          pos.bottom = screenHeight - rect.top + 10; // Open Upwards
+      } else {
+          pos.top = rect.bottom + 10; // Open Downwards
+      }
+
+      // Horizontal Logic: Center relative to button, but clamp to screen edges
+      let calculatedLeft = rect.left + (rect.width / 2) - (MENU_WIDTH / 2);
+
+      // Clamp Left
+      if (calculatedLeft < SCREEN_PADDING) {
+          calculatedLeft = SCREEN_PADDING;
+      } 
+      // Clamp Right
+      else if (calculatedLeft + MENU_WIDTH > screenWidth - SCREEN_PADDING) {
+          calculatedLeft = screenWidth - MENU_WIDTH - SCREEN_PADDING;
+      }
+
+      pos.left = calculatedLeft;
+
+      setQuickMenuPos(pos);
+      setActiveQuickMenuId(msgId);
+  };
+
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -286,6 +381,7 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
         className="flex-grow overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/50 p-4 space-y-2 transition-colors relative"
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        onClick={() => setActiveQuickMenuId(null)}
       >
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, gray 1px, transparent 0)`, backgroundSize: '24px 24px' }}></div>
@@ -303,14 +399,11 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
         {messages.map((msg, index) => {
           const isMe = msg.userId === currentUser.id;
           const showHeader = index === 0 || messages[index-1].userId !== msg.userId;
-          const isNearTop = index < 3; 
           const othersRead = msg.readBy?.filter(id => id !== currentUser.id) || [];
           const isAllRead = othersRead.length > 0;
           
-          // Identify users who read this message
           const seenByUsers = othersRead.map(id => users.find(u => u.id === id)).filter(Boolean);
           
-          // Date Separator Logic
           const prevMsg = messages[index - 1];
           const showDateSeparator = !prevMsg || new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
 
@@ -419,40 +512,38 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
 
                                     {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                                         <div className={`absolute -bottom-3 ${isMe ? 'right-0' : 'left-0'} flex gap-0.5 bg-white dark:bg-zinc-900 rounded-full px-1.5 py-0.5 border border-zinc-200 dark:border-zinc-800 shadow-md whitespace-nowrap z-20 animate-pop-in`}>
-                                            {Object.entries(msg.reactions).map(([emoji, userIds]) => (
-                                                <span key={emoji} className="text-xs" title={userIds.join(', ')}>{emoji} <span className="text-[9px] text-zinc-500 font-mono">{userIds.length > 1 ? userIds.length : ''}</span></span>
-                                            ))}
+                                            {Object.entries(msg.reactions).map(([emoji, userIds]) => {
+                                                const ids = userIds as string[];
+                                                return (
+                                                <span key={emoji} className="text-xs" title={ids.join(', ')}>{emoji} <span className="text-[9px] text-zinc-500 font-mono">{ids.length > 1 ? ids.length : ''}</span></span>
+                                            )})}
                                         </div>
                                     )}
                                 </div>
                             )}
 
-                            {/* Seen By Indicator (Only for own messages) */}
+                            {/* Seen By Indicator */}
                             {isMe && !msg.poll && seenByUsers.length > 0 && (
                                 <div className="flex flex-col items-end gap-0.5 mt-1 mr-1 animate-fade-in select-none">
                                     <div className="flex items-center gap-1.5">
-                                        <div className="flex items-center gap-1 text-[10px] text-zinc-400">
-                                           <Eye size={10} />
-                                           <span>Seen by</span>
-                                        </div>
-                                        {/* If less than 3 people, show names. Else show avatar stack */}
+                                        <span className="text-[10px] text-zinc-400">Seen by</span>
                                         {seenByUsers.length <= 2 ? (
                                             <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium truncate max-w-[150px]">
                                                 {seenByUsers.map(u => u!.name.split(' ')[0]).join(', ')}
                                             </span>
                                         ) : (
-                                            <div className="flex -space-x-1.5 items-center">
+                                            <div className="flex -space-x-1.5">
                                                 {seenByUsers.slice(0, 3).map((u, i) => (
                                                     <img 
                                                         key={u!.id + i} 
                                                         src={u!.avatar} 
                                                         alt={u!.name} 
                                                         title={u!.name}
-                                                        className="w-4 h-4 rounded-full ring-1 ring-white dark:ring-zinc-900 bg-zinc-200"
+                                                        className="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-zinc-900 bg-zinc-200"
                                                     />
                                                 ))}
                                                 {seenByUsers.length > 3 && (
-                                                    <span className="w-4 h-4 rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-white dark:ring-zinc-900 flex items-center justify-center text-[8px] text-zinc-500 font-bold ml-1">
+                                                    <span className="w-3.5 h-3.5 rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-white dark:ring-zinc-900 flex items-center justify-center text-[8px] text-zinc-500 font-bold">
                                                         +{seenByUsers.length - 3}
                                                     </span>
                                                 )}
@@ -462,30 +553,18 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
                                 </div>
                             )}
 
-                            {/* Actions Menu (Hover) */}
-                            <div className={`absolute top-0 ${isMe ? '-left-12' : '-right-12'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white/90 dark:bg-zinc-900/90 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-xl backdrop-blur-sm z-10`}>
+                            {/* Actions Menu */}
+                            <div className={`absolute top-0 ${isMe ? '-left-12' : '-right-12'} opacity-0 group-hover:opacity-100 md:opacity-0 transition-opacity flex items-center gap-1 bg-white/90 dark:bg-zinc-900/90 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-xl backdrop-blur-sm z-10`}>
                                 <button onClick={() => setReplyingTo(msg)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
                                     <Reply size={14} />
                                 </button>
-                                <div className="relative group/emoji">
-                                    <button className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
-                                        <Smile size={14} />
-                                    </button>
-                                    <div className={`absolute ${isNearTop ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 hidden group-hover/emoji:flex bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-1.5 rounded-full shadow-xl gap-1 z-50 animate-pop-in`}>
-                                        {REACTION_EMOJIS.map(emoji => (
-                                            <button 
-                                                key={emoji} 
-                                                onClick={() => {
-                                                    onReact(msg.id, emoji);
-                                                    SoundService.playClick();
-                                                }}
-                                                className="hover:scale-125 transition-transform text-base p-1"
-                                            >
-                                                {emoji}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                <button 
+                                    onClick={(e) => toggleQuickMenu(e, msg.id)}
+                                    onMouseEnter={(e) => { if(window.innerWidth > 768) toggleQuickMenu(e, msg.id) }}
+                                    className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                                >
+                                    <Smile size={14} />
+                                </button>
                             </div>
 
                         </div>
@@ -495,6 +574,42 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
             </React.Fragment>
           );
         })}
+        
+        {/* Quick Reaction Menu (Fixed Portal) */}
+        {activeQuickMenuId && quickMenuPos && (
+            <div 
+                className="fixed z-[9999] flex items-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-2 rounded-full shadow-2xl gap-2 animate-pop-in"
+                style={{ ...quickMenuPos }}
+                onMouseLeave={() => setActiveQuickMenuId(null)}
+            >
+                {REACTION_EMOJIS.map(emoji => (
+                    <button 
+                        key={emoji} 
+                        onClick={() => {
+                            onReact(activeQuickMenuId, emoji);
+                            SoundService.playClick();
+                            setActiveQuickMenuId(null);
+                        }}
+                        className="hover:scale-125 transition-transform text-xl p-1"
+                    >
+                        {emoji}
+                    </button>
+                ))}
+                <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1"></div>
+                <button 
+                    onClick={() => {
+                        setActiveReactionMessageId(activeQuickMenuId);
+                        setShowFullEmojiPicker(true);
+                        SoundService.playClick();
+                        setActiveQuickMenuId(null);
+                    }}
+                    className="hover:scale-110 transition-transform p-1 text-zinc-400 hover:text-blue-500"
+                    title="More Emojis"
+                >
+                    <Plus size={20} />
+                </button>
+            </div>
+        )}
 
         {activeTypingUsers.length > 0 && (
              <div className="flex items-center gap-2 ml-10 animate-fade-in mt-2 relative z-0">
@@ -528,9 +643,36 @@ const DiscussionBoard: React.FC<Props> = ({ currentUser, users, messages, onSend
         </button>
       )}
 
+      {/* Full Emoji Picker Modal (FIXED POSITIONING) */}
+      {showFullEmojiPicker && (
+          <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="relative shadow-2xl rounded-xl overflow-hidden max-w-[90vw] max-h-[80vh]">
+                  <button 
+                    onClick={() => {
+                        setShowFullEmojiPicker(false);
+                        setActiveReactionMessageId(null);
+                    }}
+                    className="absolute top-2 right-2 z-10 p-1 bg-zinc-200 dark:bg-zinc-700 rounded-full text-zinc-500 hover:text-red-500"
+                  >
+                      <X size={16} />
+                  </button>
+                  <EmojiPicker 
+                    theme={isDarkMode ? Theme.DARK : Theme.LIGHT}
+                    onEmojiClick={onEmojiClick}
+                    searchDisabled={false}
+                    skinTonesDisabled
+                    previewConfig={{ showPreview: false }}
+                    width={320}
+                    height={400}
+                    style={{ maxWidth: '100%' }}
+                  />
+              </div>
+          </div>
+      )}
+
       {/* Poll Creator Modal */}
       {showPollCreator && (
-        <div className="absolute inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 animate-fade-in">
              <div className="bg-white dark:bg-zinc-900 w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-zinc-200 dark:border-zinc-800">
                  <div className="flex justify-between items-center mb-4">
                      <h3 className="font-bold text-lg flex items-center gap-2 text-zinc-900 dark:text-white"><BarChart2 className="text-blue-500" /> Create Poll</h3>

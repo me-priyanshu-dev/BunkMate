@@ -1,6 +1,6 @@
 
 import mqtt from 'mqtt';
-import { User, DailyStatus, Message } from '../types';
+import { User, DailyStatus, Message, CalendarEvent } from '../types';
 
 const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
 
@@ -35,6 +35,7 @@ export const connectMQTT = (user: User, onMessage: MessageHandler) => {
 
   client.on('connect', () => {
     console.log('MQTT Connected');
+    // Subscribe to all relevant topics including specific event IDs
     const topic = `bunkmate/${currentClassCode}/#`;
     client?.subscribe(topic, (err) => {
       if (!err) {
@@ -43,7 +44,7 @@ export const connectMQTT = (user: User, onMessage: MessageHandler) => {
     });
   });
 
-  client.on('message', (topic: string, payload: Buffer) => {
+  client.on('message', (topic: string, payload: any) => {
     try {
       const messageStr = payload.toString();
       const data = JSON.parse(messageStr);
@@ -122,4 +123,11 @@ export const publishPollVote = (messageId: string, optionId: string, userId: str
     if (!client || !currentClassCode) return;
     const topic = `bunkmate/${currentClassCode}/poll-vote`;
     client.publish(topic, JSON.stringify({ messageId, optionId, userId }), { qos: 1 });
+}
+
+export const publishEvent = (event: CalendarEvent) => {
+    if (!client || !currentClassCode) return;
+    // Use unique topic per event so Retain works for multiple items (Agenda)
+    const topic = `bunkmate/${currentClassCode}/event/${event.id}`;
+    client.publish(topic, JSON.stringify(event), { qos: 1, retain: true });
 }

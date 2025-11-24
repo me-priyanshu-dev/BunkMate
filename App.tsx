@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus, Poll } from './types';
+import { User, DailyStatus, StatusType, ViewState, AttendanceStats, Message, TypingStatus, Poll, CalendarEvent, EventType } from './types';
 import { 
   initializeData, 
   getTodayDateString, 
@@ -18,32 +18,35 @@ import {
   upsertRemoteUser,
   saveRemoteStatus,
   voteOnPoll,
-  updateUserProfile
+  updateUserProfile,
+  getEvents,
+  saveEvent
 } from './services/mockData';
 import { 
   connectMQTT, 
   disconnectMQTT, 
   publishStatus, 
   publishHeartbeat, 
-  publishMessage,
+  publishMessage, 
   publishTyping,
   publishReaction,
   publishReadReceipt,
-  publishPollVote
+  publishPollVote,
+  publishEvent
 } from './services/mqttService';
 import { SoundService, initAudio } from './services/soundService';
 import Navigation from './components/Navigation';
 import StatusCard from './components/StatusCard';
 import GroupPulse from './components/GroupPulse';
 import AttendanceChart from './components/AttendanceChart';
-import CalendarView from './components/CalendarView';
 import Advisor from './components/Advisor';
 import Onboarding from './components/Onboarding';
 import DiscussionBoard from './components/DiscussionBoard';
 import ProfileSettings from './components/ProfileSettings';
 import Feedback from './components/Feedback';
 import WeatherWidget from './components/WeatherWidget';
-import { Bell, Wifi, WifiOff, LogOut, Calendar, Timer } from 'lucide-react';
+import StudySection from './components/StudySection';
+import { Bell, Wifi, WifiOff, LogOut, Calendar, BarChart2 } from 'lucide-react';
 
 const App: React.FC = () => {
   // Initialize state lazily to prevent flickering on load
@@ -55,9 +58,8 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [statuses, setStatuses] = useState<DailyStatus[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
-  const [notifications, setNotifications] = useState<string[]>([]);
-  const [statsViewMode, setStatsViewMode] = useState<'CHART' | 'CALENDAR'>('CHART');
   const [isConnected, setIsConnected] = useState(false);
   const [dateOffset, setDateOffset] = useState(0); // 0 = Today, 1 = Tomorrow, 2 = Day After
   const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
@@ -96,13 +98,6 @@ const App: React.FC = () => {
         try {
             const permission = await Notification.requestPermission();
             setPermissionStatus(permission);
-            // Also try to register SW for push if not already
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(reg => {
-                    // Logic for subscribing to VAPID push would go here
-                    console.log('SW Ready for notifications');
-                });
-            }
         } catch (e) {
             console.error("Failed to request notification permission", e);
         }
@@ -163,6 +158,7 @@ const App: React.FC = () => {
       setUsers(getUsersForDisplay(currentUser.id, currentUser.classCode));
       setStatuses(getStatuses());
       setMessages(getMessages());
+      setEvents(getEvents());
     }
   }, [currentUser]);
 
@@ -221,34 +217,32 @@ const App: React.FC = () => {
     }
   }, [currentUser]);
 
-  const sendSystemNotification = async (title: string, body: string) => {
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-
-    try {
-        // Use Service Worker for consistent notifications (Web Push standard)
-        const registration = await navigator.serviceWorker.getRegistration();
-        
-        if (registration) {
-            registration.showNotification(title, { 
-                body, 
-                icon: 'https://cdn-icons-png.flaticon.com/512/2983/2983911.png',
-                tag: 'bunkmate-notification',
-                renotify: true,
-                badge: 'https://cdn-icons-png.flaticon.com/512/2983/2983911.png',
-                data: { url: window.location.href }
-            } as any);
-        } else {
-            // Fallback for non-SW environments
+  // System Notification Handler
+  const sendSystemNotification = (title: string, body: string) => {
+    if ('serviceWorker' in navigator && 'PushManager' in window && Notification.permission === 'granted') {
+         navigator.serviceWorker.ready.then(registration => {
+             registration.showNotification(title, {
+                 body: body,
+                 icon: '/icon.png', // Fallback or PWA icon
+                 badge: '/badge.png',
+                 tag: 'bunkmate-update', // Tag prevents duplicate notifications
+                 renotify: true,
+                 vibrate: [200, 100, 200]
+             } as any);
+             SoundService.playNotification();
+         });
+    } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+         // Fallback for non-SW environments
+         try {
              new Notification(title, { 
                  body, 
-                 icon: 'https://cdn-icons-png.flaticon.com/512/2983/2983911.png',
-                 tag: 'bunkmate-notification',
+                 tag: 'bunkmate-update',
                  renotify: true
              } as any);
-        }
-        SoundService.playNotification();
-    } catch (e) {
-        console.error("Notification failed", e);
+             SoundService.playNotification();
+         } catch (e) {
+             console.error("Notification failed", e);
+         }
     }
   };
 
@@ -270,15 +264,15 @@ const App: React.FC = () => {
             return [...prev.filter(s => !(s.userId === statusObj.userId && s.date === statusObj.date)), statusObj];
          });
          
-         if (statusObj.date === todayDate || statusObj.date === viewDateStr) {
+         const isFreshUpdate = (Date.now() - statusObj.timestamp) < 10000;
+
+         if (isFreshUpdate && (statusObj.date === todayDate || statusObj.date === viewDateStr)) {
              const allUsers = getUsersForDisplay(currentUser.id, currentUser.classCode);
              const who = allUsers.find(u => u.id === statusObj.userId);
              const name = who?.name || 'Friend';
              const text = `${name} is ${statusObj.status === 'GOING' ? 'Going' : 'Not Going'} ${statusObj.date === todayDate ? 'today' : 'on ' + statusObj.date}`;
-             addNotification(text);
-             if (document.visibilityState === 'hidden') {
-                 sendSystemNotification("Squad Update", text);
-             }
+             
+             sendSystemNotification("Squad Update", text);
          }
       }
     } else if (topic.includes('/message')) {
@@ -290,12 +284,15 @@ const App: React.FC = () => {
              return [...prev, msg]; 
           });
           
-          if (currentView !== ViewState.DISCUSS) {
-             addNotification(`New message from ${msg.userName}`);
-             sendSystemNotification(msg.userName, msg.text || (msg.poll ? 'Sent a poll' : 'Sent a message'));
-          } else if (document.visibilityState === 'visible') {
-              // If I'm looking at chat, mark as read
-              publishReadReceipt(msg.id, currentUser.id);
+          const isFreshMessage = (Date.now() - msg.timestamp) < 10000;
+
+          if (isFreshMessage) {
+              if (currentView !== ViewState.DISCUSS) {
+                 sendSystemNotification(msg.userName, msg.text || (msg.poll ? 'Sent a poll' : 'Sent a message'));
+              } else if (document.visibilityState === 'visible') {
+                  publishReadReceipt(msg.id, currentUser.id);
+                  SoundService.playReceive();
+              }
           }
       }
     } else if (topic.includes('/typing')) {
@@ -324,21 +321,26 @@ const App: React.FC = () => {
             const updatedMsgs = voteOnPoll(messageId, optionId, userId);
             setMessages(updatedMsgs);
         }
+    } else if (topic.includes('/event')) {
+        const event = data as CalendarEvent;
+        // Check duplication
+        if (events.some(e => e.id === event.id)) return;
+        
+        saveEvent(event);
+        setEvents(prev => [...prev, event].sort((a,b) => a.timestamp - b.timestamp));
+        
+        const isFresh = (Date.now() - event.timestamp) < 10000;
+        if (isFresh && event.createdBy !== currentUser.name) {
+            sendSystemNotification("New Event", `${event.title} added by ${event.createdBy}`);
+        }
     }
-  };
-
-  const addNotification = (msg: string) => {
-    SoundService.playNotification();
-    setNotifications(prev => [msg, ...prev]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n !== msg));
-    }, 5000);
   };
 
   const forceRefresh = () => {
     SoundService.playClick();
     setStatuses(getStatuses());
     setMessages(getMessages());
+    setEvents(getEvents());
     if (currentUser) {
         setUsers(getUsersForDisplay(currentUser.id, currentUser.classCode));
         publishHeartbeat(currentUser);
@@ -379,6 +381,9 @@ const App: React.FC = () => {
     if (!currentUser) return;
     const updatedMsgs = addReactionToMessage(messageId, emoji, currentUser.id);
     setMessages(updatedMsgs);
+    // Ignore my own echo is handled in handleMQTTMessage by userId check, but for local update we need to render it
+    // The previous implementation had a bug where reaction was toggled off by echo. 
+    // We already fixed it in handleMQTTMessage.
     publishReaction(messageId, emoji, currentUser.id);
   };
 
@@ -406,6 +411,21 @@ const App: React.FC = () => {
       }
   };
 
+  const handleAddEvent = (title: string, type: EventType) => {
+      if (!currentUser) return;
+      const newEvent: CalendarEvent = {
+          id: 'evt_' + Date.now(),
+          title,
+          type,
+          date: viewDateStr,
+          createdBy: currentUser.name,
+          timestamp: Date.now()
+      };
+      saveEvent(newEvent);
+      setEvents(prev => [...prev, newEvent].sort((a,b) => a.timestamp - b.timestamp));
+      publishEvent(newEvent);
+  };
+
   const handleOnboardingComplete = (name: string, classCode: string, targetDays: number, isNew: boolean, existingUser?: User) => {
     SoundService.playClick();
     let user;
@@ -425,7 +445,6 @@ const App: React.FC = () => {
     logoutUser();
     disconnectMQTT();
     setCurrentUser(null);
-    setNotifications([]);
     setCurrentView(ViewState.DASHBOARD);
   };
 
@@ -443,19 +462,15 @@ const App: React.FC = () => {
   const currentViewStatuses = useMemo(() => {
     return statuses.filter(s => s.date === viewDateStr);
   }, [statuses, viewDateStr]);
+  
+  const currentViewEvents = useMemo(() => {
+      return events.filter(e => e.date === viewDateStr);
+  }, [events, viewDateStr]);
 
   const myCurrentViewStatus = useMemo(() => {
     return currentViewStatuses.find(s => s.userId === currentUser?.id)?.status || 'UNDECIDED';
   }, [currentViewStatuses, currentUser]);
 
-  const examDaysLeft = useMemo(() => {
-      if (!currentUser?.examDate) return null;
-      const exam = new Date(currentUser.examDate);
-      const today = new Date();
-      const diffTime = exam.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-      return diffDays;
-  }, [currentUser?.examDate]);
 
   const recommendation = useMemo(() => {
     if (!currentUser) return undefined;
@@ -481,6 +496,7 @@ const App: React.FC = () => {
     if (othersGoing > othersNotGoing) return { shouldGo: true, message: `${othersGoing} friends are going. Good day to show up.`, severity: 'moderate' as const };
     return { shouldGo: true, message: "When in doubt, it's better to show up.", severity: 'moderate' as const };
   }, [currentViewStatuses, myStats.targetPercentage, currentUser, statuses, viewDateLabel, viewDateStr]);
+
 
   if (!currentUser) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
@@ -517,24 +533,6 @@ const App: React.FC = () => {
           <WeatherWidget dateOffset={dateOffset} />
       </div>
 
-      {currentUser.examDate && examDaysLeft !== null && (
-          <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-5 mb-6 text-white shadow-lg animate-slide-up relative overflow-hidden" style={{ animationDelay: '0.2s' }}>
-             <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
-                 <Timer size={120} />
-             </div>
-             <div className="relative z-10 flex justify-between items-end">
-                 <div>
-                     <p className="text-violet-200 text-xs font-bold uppercase tracking-wider mb-1">Target Exam</p>
-                     <h3 className="text-xl font-bold">{currentUser.examName || 'Upcoming Exam'}</h3>
-                 </div>
-                 <div className="text-right">
-                     <span className="text-4xl font-bold block leading-none">{examDaysLeft}</span>
-                     <span className="text-violet-200 text-xs">Days Left</span>
-                 </div>
-             </div>
-          </div>
-      )}
-
       <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <StatusCard 
             user={currentUser} 
@@ -556,44 +554,12 @@ const App: React.FC = () => {
     </>
   );
 
-  const renderStatsWidgets = () => (
-    <div className="space-y-6 h-full flex flex-col animate-fade-in">
-      <div className="flex gap-4 mb-2 flex-shrink-0">
-        <button 
-           onClick={() => { setStatsViewMode('CHART'); SoundService.playClick(); }}
-           className={`flex-1 py-3 px-4 rounded-xl text-lg font-medium transition-colors ${statsViewMode === 'CHART' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}
-        >
-          Overview & Rank
-        </button>
-        <button 
-           onClick={() => { setStatsViewMode('CALENDAR'); SoundService.playClick(); }}
-           className={`flex-1 py-3 px-4 rounded-xl text-lg font-medium transition-colors ${statsViewMode === 'CALENDAR' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}
-        >
-          Calendar
-        </button>
-      </div>
-      <div className="flex-grow min-h-0 overflow-y-auto">
-        {statsViewMode === 'CHART' ? (
-            <AttendanceChart currentUser={currentUser} users={users} statuses={statuses} myStats={myStats} />
-        ) : (
-            <CalendarView statuses={statuses} currentUser={currentUser} />
-        )}
-      </div>
-    </div>
-  );
-
-  const isInteractiveView = currentView === ViewState.DISCUSS || currentView === ViewState.ADVISOR;
+  const isInteractiveView = currentView === ViewState.DISCUSS || currentView === ViewState.ADVISOR || currentView === ViewState.STUDY;
   const showMobileHeader = currentView === ViewState.DASHBOARD || currentView === ViewState.PROFILE;
 
   return (
     <div className="h-[100dvh] w-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-blue-600/30 overflow-hidden flex flex-col transition-colors duration-300">
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3 pointer-events-none w-full max-w-md px-4">
-        {notifications.map((note, idx) => (
-          <div key={idx} className="bg-zinc-800/95 backdrop-blur border border-zinc-700 text-white py-3 px-6 rounded-full shadow-2xl animate-pop-in flex items-center gap-3">
-             <Bell size={18} className="text-blue-500" /> 
-             <span className="font-medium">{note}</span>
-          </div>
-        ))}
       </div>
 
       <Navigation 
@@ -630,7 +596,16 @@ const App: React.FC = () => {
 
         <div className={`flex-1 min-h-0 ${isInteractiveView ? 'flex flex-col overflow-hidden pb-20 px-0' : `overflow-y-auto space-y-4 scroll-smooth px-4 pb-24 ${!showMobileHeader ? 'pt-6' : ''}`}`}>
             {currentView === ViewState.DASHBOARD && renderDashboardWidgets()}
-            {currentView === ViewState.STATS && renderStatsWidgets()}
+            {currentView === ViewState.STUDY && (
+                <div className="h-full overflow-hidden">
+                    <StudySection />
+                </div>
+            )}
+            {currentView === ViewState.STATS && (
+                <div className="h-full px-4 overflow-y-auto">
+                    <AttendanceChart currentUser={currentUser} users={users} statuses={statuses} myStats={myStats} />
+                </div>
+            )}
             {currentView === ViewState.ADVISOR && (
                <div className="h-full px-4 animate-fade-in">
                  <Advisor users={users} todayStatus={currentViewStatuses} myStats={myStats} userGoal={currentUser.targetDaysPerWeek || 4} dateLabel={viewDateLabel} />
@@ -666,11 +641,17 @@ const App: React.FC = () => {
         </div>
       </div>
 
+      {/* Desktop Layout */}
       <div className="hidden md:block h-full">
          <div className="ml-64 p-10 h-screen overflow-hidden flex flex-col">
             <div className="flex justify-between items-start mb-8 shrink-0">
               <div>
-                  <h1 className="text-4xl font-bold text-zinc-900 dark:text-white mb-2">Dashboard</h1>
+                  <h1 className="text-4xl font-bold text-zinc-900 dark:text-white mb-2">
+                    {currentView === ViewState.DASHBOARD ? 'Dashboard' : 
+                     currentView === ViewState.STUDY ? 'Study Hub' :
+                     currentView === ViewState.STATS ? 'Statistics' :
+                     currentView === ViewState.DISCUSS ? 'Squad Chat' : 'BunkMate'}
+                  </h1>
                   <div className="flex items-center gap-3 text-zinc-500 dark:text-zinc-400">
                     <span className="text-lg">{viewDateDisplay}</span>
                     <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 px-3 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800">
@@ -696,23 +677,6 @@ const App: React.FC = () => {
               {currentView === ViewState.DASHBOARD && (
                   <>
                     <div className="col-span-8 space-y-8 overflow-y-auto pr-2">
-                        {currentUser.examDate && examDaysLeft !== null && (
-                            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex justify-between items-center">
-                                <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4">
-                                    <Timer size={140} />
-                                </div>
-                                <div>
-                                    <p className="text-violet-200 text-sm font-bold uppercase tracking-wider mb-2">Countdown to Victory</p>
-                                    <h3 className="text-3xl font-bold">{currentUser.examName}</h3>
-                                    <p className="text-violet-100 opacity-80 mt-1">{new Date(currentUser.examDate).toDateString()}</p>
-                                </div>
-                                <div className="text-right z-10">
-                                    <span className="text-6xl font-bold block">{examDaysLeft}</span>
-                                    <span className="text-violet-200 font-medium">Days Remaining</span>
-                                </div>
-                            </div>
-                        )}
-
                         <div className="flex items-center gap-4 bg-white dark:bg-zinc-900 p-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 w-fit shadow-sm">
                             <Calendar className="ml-2 text-zinc-400 dark:text-zinc-500" size={20} />
                             <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700"></div>
@@ -733,7 +697,7 @@ const App: React.FC = () => {
                         </div>
                         
                         <WeatherWidget dateOffset={dateOffset} />
-
+                        
                         <StatusCard 
                           user={currentUser} 
                           status={myCurrentViewStatus} 
@@ -756,10 +720,15 @@ const App: React.FC = () => {
                   </>
               )}
 
+              {currentView === ViewState.STUDY && (
+                  <div className="col-span-12 h-full overflow-hidden">
+                     <StudySection />
+                  </div>
+              )}
+
               {currentView === ViewState.STATS && (
-                  <div className="col-span-12 grid grid-cols-2 gap-8 h-full">
-                      <div className="h-full overflow-hidden"><AttendanceChart currentUser={currentUser} users={users} statuses={statuses} myStats={myStats} /></div>
-                      <div className="h-full overflow-hidden"><CalendarView statuses={statuses} currentUser={currentUser} /></div>
+                  <div className="col-span-12 h-full overflow-hidden">
+                      <AttendanceChart currentUser={currentUser} users={users} statuses={statuses} myStats={myStats} />
                   </div>
               )}
               

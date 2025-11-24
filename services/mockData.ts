@@ -1,5 +1,5 @@
 
-import { User, DailyStatus, StatusType, Message } from '../types';
+import { User, DailyStatus, StatusType, Message, CalendarEvent } from '../types';
 
 // Fixed: Use Local Time instead of UTC to avoid timezone issues
 export const getTodayDateString = (): string => {
@@ -37,6 +37,7 @@ export const getDateWithOffset = (offset: number) => {
 let usersCache: User[] | null = null;
 let statusesCache: DailyStatus[] | null = null;
 let messagesCache: Message[] | null = null;
+let eventsCache: CalendarEvent[] | null = null;
 
 // --- User Management ---
 
@@ -127,6 +128,7 @@ export const logoutUser = () => {
   usersCache = null;
   statusesCache = null;
   messagesCache = null;
+  eventsCache = null;
 };
 
 // Merges a remote user into our local view (cache)
@@ -352,6 +354,34 @@ export const markMessageAsRead = (messageId: string, userId: string): Message[] 
     return updatedMsgs;
 }
 
+// --- Events Tracker ---
+
+export const getEvents = (): CalendarEvent[] => {
+  if (eventsCache) return eventsCache;
+  const eventsData = localStorage.getItem('bunkmate_events');
+  eventsCache = eventsData ? JSON.parse(eventsData) : [];
+  return eventsCache!;
+};
+
+export const saveEvent = (event: CalendarEvent): CalendarEvent[] => {
+    const events = getEvents();
+    const existingIndex = events.findIndex(e => e.id === event.id);
+    let updatedEvents = [...events];
+    
+    if (existingIndex >= 0) {
+        updatedEvents[existingIndex] = event;
+    } else {
+        updatedEvents.push(event);
+    }
+
+    // Sort by timestamp
+    updatedEvents.sort((a, b) => a.timestamp - b.timestamp);
+    
+    eventsCache = updatedEvents;
+    localStorage.setItem('bunkmate_events', JSON.stringify(updatedEvents));
+    return updatedEvents;
+};
+
 export const initializeData = () => {
   if (!localStorage.getItem('bunkmate_users')) {
     localStorage.setItem('bunkmate_users', JSON.stringify([]));
@@ -359,7 +389,11 @@ export const initializeData = () => {
   if (!localStorage.getItem('bunkmate_statuses')) {
     localStorage.setItem('bunkmate_statuses', JSON.stringify([]));
   }
+  if (!localStorage.getItem('bunkmate_events')) {
+      localStorage.setItem('bunkmate_events', JSON.stringify([]));
+  }
   getAllUsers();
   getStatuses();
   getMessages();
+  getEvents();
 };

@@ -37,6 +37,7 @@
           extend: {
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
+              hand: ['Kalam', 'cursive'],
             },
             animation: {
               'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
@@ -62,7 +63,7 @@
       }
     </script>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
       body { font-family: 'Inter', sans-serif; }
       ::-webkit-scrollbar { width: 8px; }
@@ -84,20 +85,36 @@
         from { transform: translateY(100%); }
         to { transform: translateY(0); }
       }
+      
+      /* Notebook Lines Pattern */
+      .notebook-paper {
+        background-color: #fdf6e3;
+        background-image: 
+          linear-gradient(#e1ded5 1px, transparent 1px);
+        background-size: 100% 2rem;
+        line-height: 2rem;
+      }
+      .dark .notebook-paper {
+        background-color: #1e1e20;
+        background-image: 
+          linear-gradient(#2f2f35 1px, transparent 1px);
+      }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
-    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "vite": "https://aistudiocdn.com/vite@^7.2.4",
-    "mqtt": "https://aistudiocdn.com/mqtt@^5.14.1"
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "@google/genai": "https://esm.sh/@google/genai@0.2.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.344.0?external=react",
+    "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
+    "react-markdown": "https://esm.sh/react-markdown@9.0.1?external=react",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@4.2.1",
+    "vite": "https://esm.sh/vite@5.1.4",
+    "mqtt": "https://esm.sh/mqtt@5.3.5",
+    "emoji-picker-react": "https://esm.sh/emoji-picker-react@4.9.2?external=react,react-dom"
   }
 }
 </script>

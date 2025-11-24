@@ -1,0 +1,135 @@
+import React, { useState } from 'react';
+import { User, DailyStatus } from '../types';
+import { Check, X, HelpCircle, UserPlus, Share2, RefreshCw, Globe2 } from 'lucide-react';
+
+interface Props {
+  users: User[];
+  statuses: DailyStatus[];
+  onRefresh?: () => void;
+  currentUser: User;
+  dateLabel: string;
+}
+
+const GroupPulse: React.FC<Props> = ({ users, statuses, onRefresh, currentUser, dateLabel }) => {
+  const [showInvite, setShowInvite] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const isOnline = (timestamp?: number) => {
+      if (!timestamp) return false;
+      return (Date.now() - timestamp) < 15000;
+  };
+
+  const sortedUsers = [...users].sort((a, b) => {
+    if (a.isCurrentUser) return -1;
+    if (b.isCurrentUser) return 1;
+    const aOnline = isOnline(a.lastSeen);
+    const bOnline = isOnline(b.lastSeen);
+    if (aOnline && !bOnline) return -1;
+    if (!aOnline && bOnline) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const handleRefresh = () => {
+    if (onRefresh) {
+        setIsRefreshing(true);
+        onRefresh();
+        setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
+  const getStatusDisplay = (status?: string) => {
+    switch (status) {
+      case 'GOING': return { icon: <Check size={18} strokeWidth={3} />, text: 'GOING', color: 'text-green-400 bg-green-950/30 border-green-800' };
+      case 'NOT_GOING': return { icon: <X size={18} strokeWidth={3} />, text: 'ABSENT', color: 'text-red-400 bg-red-950/30 border-red-800' };
+      default: return { icon: <HelpCircle size={18} strokeWidth={2.5} />, text: 'WAITING', color: 'text-amber-400 bg-amber-950/30 border-amber-800' };
+    }
+  };
+
+  return (
+    <div className="bg-zinc-900 rounded-3xl p-6 md:p-8 border border-zinc-800">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3">
+            <h3 className="text-white font-bold text-xl md:text-2xl">Squad Status <span className="text-zinc-500 font-normal text-lg">({dateLabel})</span></h3>
+            <span className="text-sm font-bold text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full">{users.length}</span>
+            {onRefresh && (
+                <button 
+                    onClick={handleRefresh} 
+                    className={`ml-2 p-1.5 rounded-full hover:bg-zinc-800 text-zinc-500 hover:text-white transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
+                    title="Force Refresh"
+                >
+                    <RefreshCw size={18} />
+                </button>
+            )}
+        </div>
+        <button 
+          onClick={() => setShowInvite(!showInvite)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-500 hover:bg-blue-600/20 text-sm font-semibold transition-colors"
+        >
+          <UserPlus size={16} />
+          {showInvite ? 'Close' : 'Invite'}
+        </button>
+      </div>
+
+      {showInvite && (
+        <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-2xl mb-6 animate-fade-in">
+          <p className="font-semibold text-zinc-200 mb-3 flex items-center gap-2">
+            <Share2 size={18} /> Invite Friends
+          </p>
+          <div className="flex items-start gap-3 text-zinc-400 mb-4 bg-zinc-900 p-3 rounded-lg">
+             <Globe2 size={20} className="shrink-0 mt-0.5 text-blue-500" />
+             <p className="text-sm leading-relaxed">
+                Tell your friends to enter this Class Code on their devices to join the squad:
+             </p>
+          </div>
+          <div className="text-center bg-black p-4 rounded-xl border border-zinc-800">
+             <span className="text-2xl md:text-3xl font-mono font-bold text-white tracking-[0.2em]">{currentUser.classCode}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {sortedUsers.map(user => {
+          const userStatus = statuses.find(s => s.userId === user.id);
+          const statusType = userStatus?.status || 'UNDECIDED';
+          const online = isOnline(user.lastSeen);
+          const display = getStatusDisplay(statusType);
+
+          return (
+            <div 
+              key={user.id} 
+              className={`flex items-center justify-between p-4 rounded-2xl bg-zinc-950/50 border border-zinc-800/50 transition-all ${user.isCurrentUser ? 'border-l-4 border-l-blue-500' : ''}`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                    <div className="w-12 h-12 rounded-full bg-zinc-800 overflow-hidden ring-2 ring-zinc-900">
+                       <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" /> 
+                    </div>
+                    {online && (
+                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-green-500 ring-2 ring-zinc-950"></div>
+                    )}
+                </div>
+                <div>
+                  <span className={`font-semibold text-lg block ${user.isCurrentUser ? 'text-white' : 'text-zinc-300'}`}>
+                    {user.name} 
+                    {user.isCurrentUser && <span className="text-sm text-zinc-500 ml-2 font-normal">(You)</span>}
+                  </span>
+                  <span className="text-xs font-medium text-zinc-500">
+                    {online ? 'Online now' : 'Offline'}
+                  </span>
+                </div>
+              </div>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${display.color}`}>
+                {display.icon}
+                <span className="text-sm font-bold tracking-wide">
+                  {display.text}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+export default GroupPulse;
